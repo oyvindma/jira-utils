@@ -1,0 +1,2606 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Jira-sorterer</title>
+<style>
+  :root {
+    --color-background: #eef0f3;
+    --color-surface: #ffffff;
+    --color-surface-muted: #f7f8fa;
+    --color-group: #e3e6eb;
+    --color-border: #d5d9e0;
+    --color-text: #1f2430;
+    --color-muted: #687083;
+    --color-accent: #2f6fde;
+    --color-drop-target: #dde8fb;
+    --color-warning: #b86e00;
+    --color-epic: #7b4fd6;
+    --color-story: #2e9b55;
+    --color-bug: #d6453d;
+    --color-task: #2f7fd6;
+    --color-highlight: #ffb400;
+    --color-highlight-background: #fff6dc;
+    --gap: 12px;
+    --radius: 6px;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    font-size: 14px;
+    color: var(--color-text);
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    display: grid;
+    grid-template-rows: auto 1fr;
+    background: var(--color-background);
+    overflow: hidden;
+  }
+  button, input, select { font: inherit; color: inherit; }
+  button {
+    cursor: pointer;
+    border: 1px solid var(--color-border);
+    background: var(--color-surface);
+    border-radius: var(--radius);
+    padding: 6px 12px;
+  }
+  button:hover { border-color: var(--color-accent); }
+  button.is-primary { background: var(--color-accent); border-color: var(--color-accent); color: #fff; }
+  [hidden] { display: none !important; }
+
+  /* ---------- Verktøylinje ---------- */
+  .toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--gap);
+    padding: 8px 16px;
+    background: var(--color-surface);
+    border-bottom: 1px solid var(--color-border);
+  }
+  .toolbar__title { font-weight: 700; font-size: 16px; margin-right: 8px; }
+  .toolbar__spacer { flex: 1; }
+  .toolbar__status { color: var(--color-muted); }
+  button:disabled { cursor: default; opacity: .45; border-color: var(--color-border); }
+  kbd, .shortcut {
+    display: inline-block;
+    min-width: 1.6em;
+    padding: 0 5px;
+    border: 1px solid var(--color-border);
+    border-bottom-width: 2px;
+    border-radius: 4px;
+    background: var(--color-surface);
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.5;
+    text-align: center;
+    color: var(--color-muted);
+  }
+  .toggle { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; user-select: none; }
+
+  /* ---------- Arbeidsflate ---------- */
+  .workspace {
+    --unsorted-panel-width: clamp(320px, 34vw, 640px);
+    display: grid;
+    grid-template-columns: var(--unsorted-panel-width) 6px 1fr;
+    min-height: 0;
+  }
+  .panel-resizer { cursor: col-resize; background: var(--color-border); }
+  .panel-resizer:hover, .panel-resizer:focus-visible { background: var(--color-accent); outline: none; }
+
+  /* ---------- Usortert-panel ---------- */
+  .unsorted-panel {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    background: var(--color-surface-muted);
+    border: 2px solid transparent;
+  }
+  .unsorted-panel__header {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px;
+    border-bottom: 1px solid var(--color-border);
+  }
+  .unsorted-panel__title { display: flex; align-items: center; gap: 6px; font-weight: 700; }
+  .unsorted-panel__count { color: var(--color-muted); font-weight: 400; }
+  .unsorted-panel__reset { margin-left: auto; padding: 2px 8px; font-size: 12px; font-weight: 400; }
+  .filter-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+  .text-input, .select-input {
+    width: 100%;
+    padding: 5px 8px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    background: var(--color-surface);
+  }
+  .filter-row .select-input { flex: 1; width: auto; min-width: 0; }
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 10px;
+    border: 1px solid var(--color-border);
+    border-radius: 999px;
+    background: var(--color-surface);
+    cursor: pointer;
+    user-select: none;
+    font-size: 12px;
+  }
+  .chip input { display: none; }
+  .chip__count { opacity: .7; }
+  .chip:has(input:checked) { background: var(--color-accent); border-color: var(--color-accent); color: #fff; }
+  .label-filter { position: relative; flex: 1; }
+  .label-filter > summary {
+    list-style: none;
+    padding: 5px 8px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    background: var(--color-surface);
+    cursor: pointer;
+  }
+  .label-filter:last-of-type .label-filter__options { left: auto; right: 0; }
+  .label-filter__options {
+    position: absolute;
+    z-index: 10;
+    top: calc(100% + 4px);
+    left: 0;
+    width: 260px;
+    max-height: 320px;
+    overflow-y: auto;
+    padding: 8px;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, .15);
+  }
+  .checkbox-row { display: flex; align-items: center; gap: 6px; padding: 3px 0; cursor: pointer; }
+  .checkbox-row__count { margin-left: auto; color: var(--color-muted); font-size: 12px; }
+  .card-list {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px 12px 64px; /* plass under valglinja */
+  }
+
+  /* ---------- Tavle med grupper ---------- */
+  .board { min-height: 0; overflow: auto; padding: var(--gap); }
+  .board__empty { margin: 48px auto; max-width: 460px; text-align: center; color: var(--color-muted); line-height: 1.5; }
+  .group-grid { display: flex; flex-direction: column; gap: var(--gap); }
+  .group-row { display: flex; gap: var(--gap); }
+  .group-row > .group { flex: var(--width-weight, 1) 1 0; scroll-margin-top: 64px; }
+  .target-strip {
+    position: sticky;
+    top: calc(-1 * var(--gap));
+    z-index: 5;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: calc(-1 * var(--gap)) calc(-1 * var(--gap)) var(--gap);
+    padding: 8px var(--gap);
+    background: var(--color-background);
+    border-bottom: 1px solid var(--color-border);
+  }
+  .target-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border: 2px solid var(--color-border);
+    background: var(--color-group);
+  }
+  .target-chip__name { font-weight: 600; }
+  .group {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+    background: var(--color-group);
+    border: 2px solid transparent;
+    border-radius: 8px;
+  }
+  .group__header { display: flex; align-items: center; gap: 8px; padding: 8px 10px; font-weight: 600; }
+  .group__name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .group__count { color: var(--color-muted); font-weight: 400; }
+  .group__remove {
+    margin-left: auto;
+    padding: 0 6px;
+    border: none;
+    background: transparent;
+    color: var(--color-muted);
+    font-size: 18px;
+    line-height: 1;
+  }
+  .group__remove:hover { color: var(--color-bug); }
+  .group__body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 0 10px 56px; /* plass under valglinja */
+  }
+  .is-drop-target { border-color: var(--color-accent) !important; background: var(--color-drop-target) !important; }
+
+  /* ---------- Kort ---------- */
+  .card {
+    --card-color: var(--color-border);
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 6px 8px;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-left: 4px solid var(--card-color);
+    border-radius: var(--radius);
+    cursor: grab;
+    user-select: none;
+    transition: opacity .15s, box-shadow .15s;
+  }
+  .card--epic { --card-color: var(--color-epic); }
+  .card--story { --card-color: var(--color-story); }
+  .card--bug { --card-color: var(--color-bug); }
+  .card--task { --card-color: var(--color-task); }
+  .card__main { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  .card__header { display: flex; align-items: center; gap: 6px; min-width: 0; }
+  .card__type { font-size: 12px; font-weight: 700; color: var(--card-color); }
+  .card__key { font-weight: 600; white-space: nowrap; }
+  .card__warning-icon { color: var(--color-warning); }
+  .card__summary { line-height: 1.3; overflow-wrap: anywhere; }
+  .card__fields { display: flex; flex-wrap: wrap; gap: 2px 10px; font-size: 12px; color: var(--color-muted); }
+  .card__field { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .card__labels { display: flex; flex-wrap: wrap; gap: 4px; }
+  .label-chip { padding: 1px 8px; border-radius: 10px; background: #eceff4; font-size: 11px; }
+  .card__children-toggle {
+    align-self: flex-start;
+    min-height: 28px;
+    padding: 4px 12px 4px 0;
+    border: none;
+    background: transparent;
+    color: var(--color-epic);
+    font-size: 13px;
+  }
+  .card__children-toggle:hover { text-decoration: underline; }
+  .card__children {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 2px;
+    padding-left: 8px;
+    border-left: 2px dashed #d9cdf3;
+  }
+  /* Kompakt: fargestripen viser typen, tittelen får to linjer */
+  .card.is-compact .card__main { flex-direction: row; align-items: baseline; gap: 8px; }
+  .card.is-compact .card__type { display: none; }
+  .card.is-compact .card__summary {
+    flex: 1;
+    min-width: 0;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .card.is-dragging { opacity: .4; }
+  .card.is-selected { box-shadow: 0 0 0 3px var(--color-accent); }
+  .card.is-highlighted-child { box-shadow: 0 0 0 3px var(--color-highlight); background: var(--color-highlight-background); }
+  .card.is-dimmed { opacity: .35; }
+  .card.is-dimmed .card.is-dimmed { opacity: 1; }
+
+  /* ---------- Valg ---------- */
+  .selection-bar {
+    position: fixed;
+    left: 50%;
+    bottom: 16px;
+    z-index: 15;
+    transform: translateX(-50%);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 16px;
+    width: max-content;
+    max-width: calc(100vw - 32px);
+    padding: 8px 16px;
+    background: var(--color-text);
+    color: #fff;
+    border-radius: 8px;
+    box-shadow: 0 6px 24px rgba(0, 0, 0, .25);
+  }
+  .selection-bar > * { white-space: nowrap; }
+  .selection-bar kbd { background: transparent; color: #fff; border-color: rgba(255, 255, 255, .5); margin-right: 4px; }
+  .drag-count {
+    position: fixed;
+    top: -100px;
+    padding: 6px 12px;
+    background: var(--color-accent);
+    color: #fff;
+    border-radius: var(--radius);
+    font-weight: 600;
+  }
+
+  .card.is-just-moved { animation: just-moved 1.6s ease-out; }
+  @keyframes just-moved {
+    from { background: #dcf3e4; box-shadow: 0 0 0 3px var(--color-story); }
+    to { background: var(--color-surface); box-shadow: 0 0 0 3px transparent; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .card.is-just-moved { animation: none; box-shadow: 0 0 0 3px var(--color-story); }
+  }
+  .move-message {
+    position: fixed;
+    right: 16px;
+    bottom: 72px;
+    z-index: 16;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 8px 8px 14px;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-left: 4px solid var(--color-story);
+    border-radius: 8px;
+    box-shadow: 0 6px 24px rgba(0, 0, 0, .18);
+  }
+
+  /* ---------- Innstillinger ---------- */
+  .settings-panel {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 20;
+    width: 380px;
+    overflow-y: auto;
+    padding: 16px;
+    background: var(--color-surface);
+    border-left: 1px solid var(--color-border);
+    box-shadow: -8px 0 24px rgba(0, 0, 0, .12);
+  }
+  .settings-panel__header { display: flex; align-items: center; justify-content: space-between; }
+  .settings-panel h2 { margin: 0; font-size: 18px; }
+  .settings-panel h3 { margin: 20px 0 8px; font-size: 14px; }
+  .settings-panel__hint { margin: 0 0 8px; color: var(--color-muted); font-size: 12px; }
+  .inline-form { display: flex; gap: 6px; }
+
+  /* ---------- Dialog ---------- */
+  .dialog {
+    width: min(560px, 90vw);
+    padding: 20px;
+    border: none;
+    border-radius: 10px;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, .25);
+  }
+  .dialog--wide { width: min(1100px, 95vw); }
+  .export-preview__scroll {
+    max-height: 60vh;
+    overflow: auto;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+  }
+  .change-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .change-table th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    padding: 8px 10px;
+    background: var(--color-surface-muted);
+    border-bottom: 1px solid var(--color-border);
+    text-align: left;
+  }
+  .change-table td { padding: 6px 10px; border-bottom: 1px solid var(--color-border); vertical-align: top; }
+  .change-table th:nth-child(1), .change-table__epic { width: 32%; }
+  .change-table th:nth-child(3) { width: 26%; }
+  .change-table__epic { background: #f6f2fd; border-right: 1px solid var(--color-border); }
+  .change-table__epic > * { position: sticky; top: 40px; } /* epic-navnet følger med når man ruller forbi barna */
+  .change-table__issue {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding-left: 8px;
+    border-left: 3px solid var(--card-color, var(--color-border));
+  }
+  .change-table__key { font-weight: 600; white-space: nowrap; }
+  .change-table__no-epic { color: var(--color-muted); font-style: italic; }
+  .label-change { display: flex; flex-wrap: wrap; gap: 4px; }
+  .label-chip--removed { background: #fde7e5; color: #a3261f; text-decoration: line-through; }
+  .label-chip--added { background: #dcf3e4; color: #1d6b3a; font-weight: 600; }
+  .dialog::backdrop { background: rgba(20, 24, 33, .45); }
+  .dialog h2 { margin: 0 0 12px; font-size: 18px; }
+  .dialog p { margin: 0 0 8px; line-height: 1.5; }
+  .dialog__details {
+    max-height: 320px;
+    overflow-y: auto;
+    margin: 0 0 12px;
+    padding: 8px 8px 8px 28px;
+    background: var(--color-surface-muted);
+    border-radius: var(--radius);
+    font-family: ui-monospace, monospace;
+    font-size: 12px;
+  }
+  .dialog__actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+</style>
+</head>
+<body>
+
+<header class="toolbar">
+  <span class="toolbar__title">Jira-sorterer</span>
+  <button id="upload-button" type="button">📂 Last opp CSV</button>
+  <input id="csv-file-input" type="file" accept=".csv,text/csv" hidden>
+  <button id="new-group-button" type="button">+ Ny gruppe</button>
+  <button id="undo-button" type="button" title="Angre siste endring (Ctrl+Z)" disabled>↶ Angre</button>
+  <button id="settings-button" type="button" data-opens-panel>⚙ Innstillinger</button>
+  <label class="toggle"><input id="compact-toggle" type="checkbox"> Kompakte kort</label>
+  <span class="toolbar__spacer"></span>
+  <span id="sorting-status" class="toolbar__status"></span>
+  <button id="export-button" class="is-primary" type="button">⬇ Eksporter CSV</button>
+</header>
+
+<main class="workspace">
+  <section class="unsorted-panel" data-drop-group="">
+    <div class="unsorted-panel__header">
+      <div class="unsorted-panel__title">
+        <kbd class="shortcut" title="Trykk 0 for å flytte valgte kort hit">0</kbd>
+        Usortert <span id="unsorted-count" class="unsorted-panel__count"></span>
+        <button id="unsorted-reset-button" class="unsorted-panel__reset" type="button">Nullstill filter</button>
+      </div>
+      <input id="unsorted-search" class="text-input" type="search" placeholder="Søk i key eller tittel  ( / )">
+      <div id="unsorted-type-filter" class="filter-row"></div>
+      <div class="filter-row">
+        <details id="unsorted-label-filter" class="label-filter">
+          <summary></summary>
+          <div class="label-filter__options"></div>
+        </details>
+        <details id="unsorted-status-filter" class="label-filter">
+          <summary></summary>
+          <div class="label-filter__options"></div>
+        </details>
+        <select id="unsorted-sort" class="select-input" aria-label="Sortering"></select>
+      </div>
+    </div>
+    <div id="unsorted-list" class="card-list"></div>
+  </section>
+
+  <div id="panel-resizer" class="panel-resizer" role="separator" aria-orientation="vertical"
+       aria-label="Bredde på usortert-panelet" tabindex="0" title="Dra for å endre bredde. Dobbeltklikk for standard."></div>
+
+  <section id="board" class="board"></section>
+</main>
+
+<aside id="settings-panel" class="settings-panel" hidden></aside>
+<div id="selection-bar" class="selection-bar" hidden></div>
+<div id="move-message" class="move-message" role="status" hidden></div>
+<dialog id="dialog" class="dialog"></dialog>
+
+<script>
+'use strict';
+
+/* ==========================================================================
+   Konstanter og domeneregler
+   ========================================================================== */
+
+/** Plassering for en ticket som ikke ligger i noen gruppe. */
+const UNSORTED = null;
+
+const EPIC_TYPE = 'Epic';
+const IMPORTED_ISSUE_TYPES = ['Epic', 'Story', 'Task', 'Bug'];
+
+const JiraColumn = {
+  ISSUE_TYPE: 'Issue Type',
+  ISSUE_KEY: 'Issue key',
+  ISSUE_ID: 'Issue id',
+  PARENT_ID: 'Parent id',
+  SUMMARY: 'Summary',
+  CREATED: 'Created',
+  EPIC_LINK: 'Custom field (Epic Link)',
+  LABELS: 'Labels',
+  STATUS: 'Status',
+};
+const REQUIRED_JIRA_COLUMNS = [JiraColumn.ISSUE_TYPE, JiraColumn.ISSUE_KEY, JiraColumn.SUMMARY];
+const STORY_POINTS_COLUMN_PREFIX = 'Custom field (Story Points';
+
+const EXPORT_DELIMITER = ';';
+
+const DEFAULT_SETTINGS = {
+  showOtherLabels: true,
+  visibleCardFields: ['type', 'status', 'epic'],
+  compactCards: false,
+  unsortedFilter: { types: [], labels: [], statuses: [], searchText: '' },
+  unsortedSortOrder: 'key',
+  expandedEpicKeys: [],
+  /** null = standardbredde */
+  unsortedPanelWidth: null,
+};
+
+function compareIssueKeys(keyA, keyB) {
+  return keyA.localeCompare(keyB, undefined, { numeric: true });
+}
+
+function byIssueKey(issueA, issueB) {
+  return compareIssueKeys(issueA.key, issueB.key);
+}
+
+function describeGroup(group) {
+  return group === UNSORTED ? 'Usortert' : group;
+}
+
+/* ==========================================================================
+   DOM-hjelper: lager elementer uten innerHTML (trygt mot innhold i CSV)
+   ========================================================================== */
+
+function createElement(tagName, { className, text, attributes = {}, dataset = {} } = {}, children = []) {
+  const element = document.createElement(tagName);
+  if (className) element.className = className;
+  if (text !== undefined) element.textContent = text;
+  for (const [name, value] of Object.entries(attributes)) element.setAttribute(name, value);
+  for (const [name, value] of Object.entries(dataset)) element.dataset[name] = value;
+  for (const child of children) {
+    if (child) element.append(child);
+  }
+  return element;
+}
+
+function createCheckboxRow({ text, count, isChecked, onToggle }) {
+  const checkbox = createElement('input', { attributes: { type: 'checkbox' } });
+  checkbox.checked = isChecked;
+  checkbox.addEventListener('change', () => onToggle(checkbox.checked));
+  return createElement('label', { className: 'checkbox-row' }, [
+    checkbox,
+    createElement('span', { text }),
+    count !== undefined && createElement('span', { className: 'checkbox-row__count', text: String(count) }),
+  ]);
+}
+
+/* ==========================================================================
+   CsvFormat: tekst <-> rader. Vet ingenting om Jira.
+   ========================================================================== */
+
+const CsvFormat = {
+  CANDIDATE_DELIMITERS: [';', ',', '\t'],
+
+  parse(text) {
+    const content = this.removeByteOrderMark(text);
+    const delimiter = this.detectDelimiter(content);
+    return this.splitIntoRows(content, delimiter)
+      .filter(row => row.some(cell => cell.trim() !== ''));
+  },
+
+  stringify(rows, delimiter) {
+    return rows
+      .map(row => row.map(cell => this.quoteIfNeeded(String(cell ?? ''), delimiter)).join(delimiter))
+      .join('\r\n');
+  },
+
+  removeByteOrderMark(text) {
+    return text.charCodeAt(0) === 0xFEFF ? text.slice(1) : text;
+  },
+
+  detectDelimiter(text) {
+    const headerLine = text.split(/\r?\n/, 1)[0];
+    const countOccurrences = delimiter => headerLine.split(delimiter).length - 1;
+    return this.CANDIDATE_DELIMITERS.reduce((best, candidate) =>
+      countOccurrences(candidate) > countOccurrences(best) ? candidate : best);
+  },
+
+  splitIntoRows(text, delimiter) {
+    const rows = [];
+    let currentRow = [];
+    let currentCell = '';
+    let isInsideQuotes = false;
+
+    for (let index = 0; index < text.length; index++) {
+      const character = text[index];
+
+      if (isInsideQuotes) {
+        if (character === '"' && text[index + 1] === '"') {
+          currentCell += '"';
+          index++;
+        } else if (character === '"') {
+          isInsideQuotes = false;
+        } else {
+          currentCell += character;
+        }
+      } else if (character === '"') {
+        isInsideQuotes = true;
+      } else if (character === delimiter) {
+        currentRow.push(currentCell);
+        currentCell = '';
+      } else if (character === '\n' || character === '\r') {
+        if (character === '\r' && text[index + 1] === '\n') index++;
+        currentRow.push(currentCell);
+        rows.push(currentRow);
+        currentRow = [];
+        currentCell = '';
+      } else {
+        currentCell += character;
+      }
+    }
+
+    if (currentCell !== '' || currentRow.length > 0) {
+      currentRow.push(currentCell);
+      rows.push(currentRow);
+    }
+    return rows;
+  },
+
+  quoteIfNeeded(value, delimiter) {
+    const needsQuotes = value.includes(delimiter) || value.includes('"') || /[\r\n]/.test(value);
+    return needsQuotes ? `"${value.replaceAll('"', '""')}"` : value;
+  },
+};
+
+/* ==========================================================================
+   JiraIssueMapper: CSV-rader fra Jira -> Issue-objekter
+   Issue = { key, type, summary, status, created, storyPoints, epicKey, labels[] }
+   ========================================================================== */
+
+const JiraIssueMapper = {
+  map(rows) {
+    const [headerRow = [], ...dataRows] = rows;
+    const columnIndexes = this.indexColumnsByName(headerRow);
+    const missingColumns = REQUIRED_JIRA_COLUMNS.filter(name => !columnIndexes.has(name));
+    if (missingColumns.length > 0) {
+      return { issues: [], missingColumns };
+    }
+
+    const storyPointsColumn = headerRow.map(name => name.trim()).find(name => name.startsWith(STORY_POINTS_COLUMN_PREFIX));
+    const jiraRows = dataRows.map(row => this.readJiraRow(row, columnIndexes, storyPointsColumn));
+    const epicKeyByIssueId = this.indexEpicKeysByIssueId(jiraRows);
+
+    const issues = jiraRows
+      .filter(jiraRow => IMPORTED_ISSUE_TYPES.includes(jiraRow.type))
+      .map(jiraRow => this.toIssue(jiraRow, epicKeyByIssueId));
+    return { issues, missingColumns: [] };
+  },
+
+  indexColumnsByName(headerRow) {
+    const indexesByName = new Map();
+    headerRow.forEach((name, index) => {
+      const columnName = name.trim();
+      indexesByName.set(columnName, [...(indexesByName.get(columnName) ?? []), index]);
+    });
+    return indexesByName;
+  },
+
+  readJiraRow(row, columnIndexes, storyPointsColumn) {
+    const readAllValues = columnName => (columnIndexes.get(columnName) ?? [])
+      .map(index => (row[index] ?? '').trim())
+      .filter(value => value !== '');
+    const readFirstValue = columnName => readAllValues(columnName)[0] ?? '';
+
+    return {
+      type: readFirstValue(JiraColumn.ISSUE_TYPE),
+      key: readFirstValue(JiraColumn.ISSUE_KEY),
+      id: readFirstValue(JiraColumn.ISSUE_ID),
+      parentId: readFirstValue(JiraColumn.PARENT_ID),
+      summary: readFirstValue(JiraColumn.SUMMARY),
+      created: readFirstValue(JiraColumn.CREATED),
+      epicLink: readFirstValue(JiraColumn.EPIC_LINK),
+      labels: [...new Set(readAllValues(JiraColumn.LABELS))],
+      status: readFirstValue(JiraColumn.STATUS),
+      storyPoints: storyPointsColumn ? readFirstValue(storyPointsColumn) : '',
+    };
+  },
+
+  indexEpicKeysByIssueId(jiraRows) {
+    return new Map(jiraRows
+      .filter(jiraRow => jiraRow.type === EPIC_TYPE && jiraRow.id)
+      .map(jiraRow => [jiraRow.id, jiraRow.key]));
+  },
+
+  /** Epic-kobling hentes fra «Epic Link», ellers fra «Parent id» dersom forelderen er en epic. */
+  resolveEpicKey(jiraRow, epicKeyByIssueId) {
+    if (jiraRow.type === EPIC_TYPE) return null;
+    return jiraRow.epicLink || epicKeyByIssueId.get(jiraRow.parentId) || null;
+  },
+
+  formatStoryPoints(rawValue) {
+    const points = parseFloat(rawValue.replace(',', '.'));
+    return Number.isFinite(points) ? String(points) : '';
+  },
+
+  toIssue(jiraRow, epicKeyByIssueId) {
+    return {
+      key: jiraRow.key,
+      type: jiraRow.type,
+      summary: jiraRow.summary,
+      status: jiraRow.status,
+      created: jiraRow.created,
+      storyPoints: this.formatStoryPoints(jiraRow.storyPoints),
+      epicKey: this.resolveEpicKey(jiraRow, epicKeyByIssueId),
+      labels: jiraRow.labels,
+    };
+  },
+};
+
+/* ==========================================================================
+   ImportValidator: avgjør om en import kan gjennomføres
+   Feil = { message, details[] }
+   ========================================================================== */
+
+const ImportValidator = {
+  validate({ issues, missingColumns }) {
+    if (missingColumns.length > 0) {
+      return [{ message: 'Filen mangler påkrevde kolonner:', details: missingColumns }];
+    }
+    if (issues.length === 0) {
+      return [{ message: `Fant ingen tickets av typene ${IMPORTED_ISSUE_TYPES.join(', ')} i filen.`, details: [] }];
+    }
+    return [...this.findDuplicateKeys(issues), ...this.findMissingEpics(issues)];
+  },
+
+  findDuplicateKeys(issues) {
+    const seenKeys = new Set();
+    const duplicateKeys = new Set();
+    for (const issue of issues) {
+      if (seenKeys.has(issue.key)) duplicateKeys.add(issue.key);
+      seenKeys.add(issue.key);
+    }
+    if (duplicateKeys.size === 0) return [];
+    return [{ message: 'Disse Issue key-ene finnes flere ganger i filen:', details: [...duplicateKeys].sort(compareIssueKeys) }];
+  },
+
+  findMissingEpics(issues) {
+    const epicKeysInFile = new Set(issues.filter(issue => issue.type === EPIC_TYPE).map(issue => issue.key));
+    const referencingKeysByMissingEpic = new Map();
+    for (const issue of issues) {
+      if (issue.epicKey && !epicKeysInFile.has(issue.epicKey)) {
+        const referencingKeys = referencingKeysByMissingEpic.get(issue.epicKey) ?? [];
+        referencingKeysByMissingEpic.set(issue.epicKey, [...referencingKeys, issue.key]);
+      }
+    }
+    if (referencingKeysByMissingEpic.size === 0) return [];
+
+    const details = [...referencingKeysByMissingEpic.keys()]
+      .sort(compareIssueKeys)
+      .map(epicKey => `${epicKey}   (brukt av ${referencingKeysByMissingEpic.get(epicKey).sort(compareIssueKeys).join(', ')})`);
+    return [{
+      message: `${referencingKeysByMissingEpic.size} epics er koblet til tickets, men finnes ikke i filen:`,
+      details,
+    }];
+  },
+};
+
+/* ==========================================================================
+   GroupLabelRules: regler for grupperingslabels på en ticket
+   ========================================================================== */
+
+const GroupLabelRules = {
+  findGroupLabelsOnIssue(issue, groups) {
+    return issue.labels.filter(label => groups.includes(label));
+  },
+
+  /** Ticketen har flere grupperingslabels og kan ikke plasseres automatisk. */
+  findConflictingGroupLabels(issue, placement, groups) {
+    if (placement !== UNSORTED) return [];
+    const groupLabels = this.findGroupLabelsOnIssue(issue, groups);
+    return groupLabels.length > 1 ? groupLabels : [];
+  },
+
+  /** Labels slik de blir i Jira: andre grupperingslabels fjernes, gjeldende gruppe legges til. */
+  resolveEffectiveLabels(issue, placement, groups) {
+    if (placement === UNSORTED) return issue.labels;
+    return [...issue.labels.filter(label => !groups.includes(label)), placement];
+  },
+
+  /** Gruppens egen label vises ikke på kortet. */
+  findLabelsToShowOnCard(issue, placement, groups) {
+    return this.resolveEffectiveLabels(issue, placement, groups).filter(label => label !== placement);
+  },
+
+  /** Jira-labels kan ikke inneholde mellomrom. */
+  toValidLabel(name) {
+    return name.trim().replace(/\s+/g, '_');
+  },
+};
+
+/* ==========================================================================
+   InitialPlacementResolver: hvor havner en ticket basert på labels?
+   ========================================================================== */
+
+const InitialPlacementResolver = {
+  /**
+   * Én grupperingslabel: i den gruppen.
+   * Flere: usortert, siden brukeren må avgjøre.
+   * Ingen: følger epicen sin, ellers usortert.
+   */
+  resolvePlacement(issue, issuesByKey, groups) {
+    const groupLabels = GroupLabelRules.findGroupLabelsOnIssue(issue, groups);
+    if (groupLabels.length === 1) return groupLabels[0];
+    if (groupLabels.length > 1) return UNSORTED;
+
+    const epic = issue.epicKey ? issuesByKey[issue.epicKey] : undefined;
+    return epic ? this.resolvePlacement(epic, issuesByKey, groups) : UNSORTED;
+  },
+};
+
+/* ==========================================================================
+   UndoHistory: tidligere plasseringer som kan gjenopprettes med Angre
+   ========================================================================== */
+
+class UndoHistory {
+  constructor(maxEntries = 50) {
+    this.entries = [];
+    this.maxEntries = maxEntries;
+  }
+
+  get canUndo() { return this.entries.length > 0; }
+
+  push(entry) {
+    this.entries.push(entry);
+    if (this.entries.length > this.maxEntries) this.entries.shift();
+  }
+
+  pop() { return this.entries.pop(); }
+  clear() { this.entries = []; }
+}
+
+/* ==========================================================================
+   BoardState: eneste kilde til sannhet for tavla
+   ========================================================================== */
+
+class BoardState {
+  constructor(snapshot = {}) {
+    this.issuesByKey = snapshot.issuesByKey ?? {};
+    this.groups = snapshot.groups ?? [];
+    this.placementByIssueKey = snapshot.placementByIssueKey ?? {};
+    /** Tickets brukeren har flyttet selv. De andre plasseres automatisk etter labels. */
+    this.manuallyPlacedIssueKeys = new Set(snapshot.manuallyPlacedIssueKeys ?? []);
+    this.undoHistory = new UndoHistory();
+    this.settings = BoardState.mergeWithDefaultSettings(snapshot.settings);
+    this.changeListeners = [];
+  }
+
+  static mergeWithDefaultSettings(savedSettings = {}) {
+    return {
+      ...DEFAULT_SETTINGS,
+      ...savedSettings,
+      unsortedFilter: { ...DEFAULT_SETTINGS.unsortedFilter, ...savedSettings.unsortedFilter },
+    };
+  }
+
+  toSnapshot() {
+    return {
+      issuesByKey: this.issuesByKey,
+      groups: this.groups,
+      placementByIssueKey: this.placementByIssueKey,
+      manuallyPlacedIssueKeys: [...this.manuallyPlacedIssueKeys],
+      settings: this.settings,
+    };
+  }
+
+  onChange(listener) {
+    this.changeListeners.push(listener);
+  }
+
+  notifyChange() {
+    for (const listener of this.changeListeners) listener();
+  }
+
+  /* ----- Spørringer ----- */
+
+  hasIssues() { return Object.keys(this.issuesByKey).length > 0; }
+  getIssue(issueKey) { return this.issuesByKey[issueKey]; }
+  getAllIssues() { return Object.values(this.issuesByKey); }
+  getGroups() { return this.groups; }
+  getSettings() { return this.settings; }
+  getPlacement(issueKey) { return this.placementByIssueKey[issueKey] ?? UNSORTED; }
+
+  countIssuesInGroup(group) {
+    return this.getAllIssues().filter(issue => this.getPlacement(issue.key) === group).length;
+  }
+
+  countLabelUsage() {
+    const usageByLabel = new Map();
+    for (const issue of this.getAllIssues()) {
+      for (const label of issue.labels) usageByLabel.set(label, (usageByLabel.get(label) ?? 0) + 1);
+    }
+    return usageByLabel;
+  }
+
+  getChildrenOfEpic(epicKey) {
+    return this.getAllIssues().filter(issue => issue.epicKey === epicKey);
+  }
+
+  /** Barn som ligger i samme gruppe som epicen sin, og derfor vises inni epic-kortet. */
+  getNestedChildren(epicKey) {
+    const epicPlacement = this.getPlacement(epicKey);
+    return this.getChildrenOfEpic(epicKey).filter(child => this.getPlacement(child.key) === epicPlacement);
+  }
+
+  isNestedInEpic(issue) {
+    return Boolean(issue.epicKey)
+      && this.getIssue(issue.epicKey) !== undefined
+      && this.getPlacement(issue.epicKey) === this.getPlacement(issue.key);
+  }
+
+  /** Tickets som vises som egne kort i en gruppe (nestede barn vises inni epicen). */
+  getTopLevelIssuesIn(group) {
+    return this.getAllIssues().filter(issue =>
+      this.getPlacement(issue.key) === group && !this.isNestedInEpic(issue));
+  }
+
+  /** Barn som ligger verken sammen med epicen eller i målgruppen. */
+  findScatteredChildren(epicKey, targetGroup) {
+    const epicPlacement = this.getPlacement(epicKey);
+    return this.getChildrenOfEpic(epicKey).filter(child => {
+      const childPlacement = this.getPlacement(child.key);
+      return childPlacement !== epicPlacement && childPlacement !== targetGroup;
+    });
+  }
+
+  isEpicExpanded(epicKey) {
+    return this.settings.expandedEpicKeys.includes(epicKey);
+  }
+
+  canUndo() { return this.undoHistory.canUndo; }
+
+  /* ----- Kommandoer ----- */
+
+  replaceImport(issues) {
+    this.issuesByKey = Object.fromEntries(issues.map(issue => [issue.key, issue]));
+    this.groups = [];
+    this.placementByIssueKey = {};
+    this.manuallyPlacedIssueKeys = new Set();
+    this.undoHistory.clear();
+    this.settings = { ...this.settings, expandedEpicKeys: [], unsortedFilter: { ...DEFAULT_SETTINGS.unsortedFilter } };
+    this.notifyChange();
+  }
+
+  /** Oppdaterer data og beholder manuelle plasseringer. Resten plasseres etter (eventuelt nye) labels. */
+  mergeImport(issues) {
+    for (const issue of issues) this.issuesByKey[issue.key] = issue;
+    this.undoHistory.clear();
+    this.placeAutomaticIssuesByLabels();
+    this.notifyChange();
+  }
+
+  /**
+   * Flytter tickets til målgruppen. En epic tar med seg barna som ligger sammen med den,
+   * og i tillegg spredte barn dersom includeScatteredChildren er satt.
+   */
+  moveIssues(issueKeys, targetGroup, { includeScatteredChildren = false } = {}) {
+    this.recordUndoPoint();
+    for (const issueKey of issueKeys) {
+      if (this.getIssue(issueKey)?.type === EPIC_TYPE) this.moveChildrenOfEpic(issueKey, targetGroup, includeScatteredChildren);
+    }
+    for (const issueKey of issueKeys) this.placeManually(issueKey, targetGroup);
+    this.notifyChange();
+  }
+
+  /** Gjenoppretter gruppene og plasseringene slik de var før forrige endring. */
+  undo() {
+    const previousState = this.undoHistory.pop();
+    if (!previousState) return;
+    this.groups = previousState.groups;
+    this.placementByIssueKey = previousState.placementByIssueKey;
+    this.manuallyPlacedIssueKeys = new Set(previousState.manuallyPlacedIssueKeys);
+    this.notifyChange();
+  }
+
+  /** Legger til en gruppe. Automatisk plasserte tickets vurderes på nytt etter labels. */
+  addGroup(label) {
+    if (this.groups.includes(label)) return;
+    this.recordUndoPoint();
+    this.groups = [...this.groups, label];
+    this.placeAutomaticIssuesByLabels();
+    this.notifyChange();
+  }
+
+  /** Fjerner gruppen. Manuelt plasserte tickets i den blir usorterte, de andre vurderes på nytt etter labels. */
+  removeGroup(label) {
+    this.recordUndoPoint();
+    this.groups = this.groups.filter(group => group !== label);
+    for (const [issueKey, placement] of Object.entries(this.placementByIssueKey)) {
+      if (placement === label) {
+        this.setPlacement(issueKey, UNSORTED);
+        this.manuallyPlacedIssueKeys.delete(issueKey);
+      }
+    }
+    this.placeAutomaticIssuesByLabels();
+    this.notifyChange();
+  }
+
+  updateSettings(changedSettings) {
+    this.settings = { ...this.settings, ...changedSettings };
+    this.notifyChange();
+  }
+
+  toggleEpicExpanded(epicKey) {
+    const expandedEpicKeys = this.isEpicExpanded(epicKey)
+      ? this.settings.expandedEpicKeys.filter(key => key !== epicKey)
+      : [...this.settings.expandedEpicKeys, epicKey];
+    this.updateSettings({ expandedEpicKeys });
+  }
+
+  /* ----- Interne hjelpere ----- */
+
+  setPlacement(issueKey, group) {
+    if (group === UNSORTED) delete this.placementByIssueKey[issueKey];
+    else this.placementByIssueKey[issueKey] = group;
+  }
+
+  recordUndoPoint() {
+    this.undoHistory.push({
+      groups: [...this.groups],
+      placementByIssueKey: { ...this.placementByIssueKey },
+      manuallyPlacedIssueKeys: [...this.manuallyPlacedIssueKeys],
+    });
+  }
+
+  moveChildrenOfEpic(epicKey, targetGroup, includeScatteredChildren) {
+    const epicPlacement = this.getPlacement(epicKey);
+    for (const child of this.getChildrenOfEpic(epicKey)) {
+      const isTogetherWithEpic = this.getPlacement(child.key) === epicPlacement;
+      if (isTogetherWithEpic || includeScatteredChildren) this.placeManually(child.key, targetGroup);
+    }
+  }
+
+  placeManually(issueKey, group) {
+    this.setPlacement(issueKey, group);
+    this.manuallyPlacedIssueKeys.add(issueKey);
+  }
+
+  placeAutomaticIssuesByLabels() {
+    for (const issue of this.getAllIssues()) {
+      if (this.manuallyPlacedIssueKeys.has(issue.key)) continue;
+      const placement = InitialPlacementResolver.resolvePlacement(issue, this.issuesByKey, this.groups);
+      this.setPlacement(issue.key, placement);
+    }
+  }
+}
+
+/* ==========================================================================
+   BoardRepository: lagring. Kan senere byttes ut med Jira eller en database.
+   ========================================================================== */
+
+const BoardRepository = {
+  STORAGE_KEY: 'jiraSorter.v1',
+
+  load() {
+    try {
+      const storedJson = localStorage.getItem(this.STORAGE_KEY);
+      return storedJson ? JSON.parse(storedJson) : null;
+    } catch (error) {
+      console.error('Kunne ikke lese lagret tavle', error);
+      return null;
+    }
+  },
+
+  save(snapshot) {
+    try {
+      localStorage.setItem(this.STORAGE_KEY, JSON.stringify(snapshot));
+    } catch (error) {
+      console.error('Kunne ikke lagre tavla', error);
+    }
+  },
+};
+
+/* ==========================================================================
+   CardSelection: kortene brukeren har valgt (lagres ikke)
+   ========================================================================== */
+
+class CardSelection {
+  constructor() {
+    this.selectedKeys = new Set();
+    /** Utgangspunkt for Shift+klikk og piltaster. */
+    this.anchorKey = null;
+    this.changeListeners = [];
+  }
+
+  onChange(listener) { this.changeListeners.push(listener); }
+
+  has(issueKey) { return this.selectedKeys.has(issueKey); }
+  getKeys() { return [...this.selectedKeys]; }
+  isEmpty() { return this.selectedKeys.size === 0; }
+
+  selectOnly(issueKey) {
+    this.replaceSelection([issueKey], issueKey);
+  }
+
+  toggle(issueKey) {
+    const keys = new Set(this.selectedKeys);
+    if (keys.has(issueKey)) keys.delete(issueKey);
+    else keys.add(issueKey);
+    this.replaceSelection([...keys], issueKey);
+  }
+
+  addRange(issueKeys) {
+    this.replaceSelection([...this.selectedKeys, ...issueKeys], this.anchorKey);
+  }
+
+  /** Fjerner nøkler som ikke lenger finnes (f.eks. etter ny import). */
+  keepOnly(isStillValid) {
+    const validKeys = this.getKeys().filter(isStillValid);
+    if (validKeys.length !== this.selectedKeys.size) this.replaceSelection(validKeys, null);
+  }
+
+  clear() {
+    if (this.isEmpty()) return;
+    this.replaceSelection([], null);
+  }
+
+  replaceSelection(issueKeys, anchorKey) {
+    this.selectedKeys = new Set(issueKeys);
+    this.anchorKey = anchorKey;
+    for (const listener of this.changeListeners) listener();
+  }
+}
+
+/* ==========================================================================
+   CardDomQueries: rekkefølgen kortene vises i på skjermen
+   ========================================================================== */
+
+const CardDomQueries = {
+  findCardElement(issueKey) {
+    return document.querySelector(`.card[data-issue-key="${CSS.escape(issueKey)}"]`);
+  },
+
+  findContainerOf(issueKey) {
+    return this.findCardElement(issueKey)?.closest('[data-drop-group]') ?? null;
+  },
+
+  /** Alle synlige kort i containeren, inkludert nestede barn i utfoldede epics. */
+  listVisibleCardKeys(container) {
+    return [...container.querySelectorAll('.card')].map(card => card.dataset.issueKey);
+  },
+
+  listTopLevelCardKeys(container) {
+    return [...container.querySelectorAll('.card:not(.card__children .card)')].map(card => card.dataset.issueKey);
+  },
+
+  /** Kortene mellom to kort i samme container, begge inkludert. */
+  listKeysBetween(fromKey, toKey) {
+    const container = this.findContainerOf(toKey);
+    if (!container || container !== this.findContainerOf(fromKey)) return [toKey];
+    const keys = this.listVisibleCardKeys(container);
+    const [first, last] = [keys.indexOf(fromKey), keys.indexOf(toKey)].sort((a, b) => a - b);
+    return keys.slice(first, last + 1);
+  },
+
+  /** Neste kort som blir igjen etter at de valgte er flyttet, slik at brukeren kan fortsette med tastaturet. */
+  findNextRemainingTopLevelKey(selectedKeys) {
+    const container = selectedKeys.map(key => this.findContainerOf(key)).find(Boolean);
+    if (!container) return null;
+    const topLevelKeys = this.listTopLevelCardKeys(container);
+    const selectedPositions = topLevelKeys
+      .map((key, position) => (selectedKeys.includes(key) ? position : -1))
+      .filter(position => position >= 0);
+    if (selectedPositions.length === 0) return null;
+
+    const isRemaining = key => !selectedKeys.includes(key);
+    const after = topLevelKeys.slice(Math.max(...selectedPositions) + 1).find(isRemaining);
+    const before = topLevelKeys.slice(0, Math.min(...selectedPositions)).reverse().find(isRemaining);
+    return after ?? before ?? null;
+  },
+};
+
+/* ==========================================================================
+   Dialog: modal som svarer med verdien til knappen brukeren valgte
+   ========================================================================== */
+
+const Dialog = {
+  /**
+   * @param {{ title: string, paragraphs?: string[], details?: string[], content?: Node, isWide?: boolean,
+   *           actions: {label, value, isPrimary?}[] }} options
+   * @returns {Promise<string|null>} verdien til valgt knapp, eller null hvis dialogen ble lukket med Escape
+   */
+  ask({ title, paragraphs = [], details = [], content = null, isWide = false, actions }) {
+    const dialogElement = document.getElementById('dialog');
+    dialogElement.classList.toggle('dialog--wide', isWide);
+    const form = createElement('form', { attributes: { method: 'dialog' } }, [
+      createElement('h2', { text: title }),
+      ...paragraphs.map(paragraph => createElement('p', { text: paragraph })),
+      details.length > 0 && createElement('ol', { className: 'dialog__details' },
+        details.map(detail => createElement('li', { text: detail }))),
+      content,
+      createElement('div', { className: 'dialog__actions' }, actions.map(action =>
+        createElement('button', {
+          className: action.isPrimary ? 'is-primary' : '',
+          text: action.label,
+          attributes: { value: action.value, type: 'submit' },
+        }))),
+    ]);
+    dialogElement.replaceChildren(form);
+    dialogElement.returnValue = '';
+
+    return new Promise(resolve => {
+      dialogElement.addEventListener('close', () => resolve(dialogElement.returnValue || null), { once: true });
+      dialogElement.showModal();
+    });
+  },
+
+  inform(title, paragraphs, details = []) {
+    return this.ask({ title, paragraphs, details, actions: [{ label: 'OK', value: 'ok', isPrimary: true }] });
+  },
+};
+
+/* ==========================================================================
+   CardRenderer: tegner ett kort (og nestede barn for epics)
+   ========================================================================== */
+
+const CARD_FIELDS = [
+  { id: 'type', label: 'Type' },
+  { id: 'status', label: 'Status', readValue: issue => issue.status },
+  { id: 'epic', label: 'Epic', readValue: (issue, state) => CardRenderer.describeEpicOf(issue, state) },
+  { id: 'storyPoints', label: 'Story points', readValue: issue => issue.storyPoints },
+  { id: 'created', label: 'Opprettet', readValue: issue => issue.created },
+];
+
+class CardRenderer {
+  constructor(boardState) {
+    this.state = boardState;
+  }
+
+  static describeEpicOf(issue, state) {
+    const epic = issue.epicKey ? state.getIssue(issue.epicKey) : undefined;
+    return epic ? `${epic.key} ${epic.summary}` : '';
+  }
+
+  /** @param childFilter avgjør hvilke nestede barn som vises (brukes av filteret i usortert-panelet) */
+  renderTopLevelCard(issue, childFilter = () => true) {
+    return issue.type === EPIC_TYPE
+      ? this.renderEpicCard(issue, childFilter)
+      : this.renderCard(issue, { isNested: false });
+  }
+
+  renderEpicCard(epic, childFilter) {
+    const card = this.renderCard(epic, { isNested: false });
+    const totalChildCount = this.state.getChildrenOfEpic(epic.key).length;
+    if (totalChildCount === 0) return card;
+
+    const nestedChildren = this.state.getNestedChildren(epic.key);
+    const visibleChildren = nestedChildren.filter(childFilter).sort(byIssueKey);
+    const isExpanded = this.state.isEpicExpanded(epic.key);
+
+    card.append(this.renderChildrenToggle(epic.key, isExpanded, {
+      nestedCount: nestedChildren.length,
+      visibleCount: visibleChildren.length,
+      elsewhereCount: totalChildCount - nestedChildren.length,
+    }));
+    if (isExpanded && visibleChildren.length > 0) {
+      card.append(createElement('div', { className: 'card__children' },
+        visibleChildren.map(child => this.renderCard(child, { isNested: true }))));
+    }
+    return card;
+  }
+
+  renderChildrenToggle(epicKey, isExpanded, { nestedCount, visibleCount, elsewhereCount }) {
+    if (nestedCount === 0) {
+      return createElement('div', { className: 'card__fields', text: `${elsewhereCount} barn i andre grupper` });
+    }
+    const textParts = [`${isExpanded ? '▾' : '▸'} ${nestedCount} barn`];
+    if (visibleCount < nestedCount) textParts.push(`(${visibleCount} vises)`);
+    if (elsewhereCount > 0) textParts.push(`· ${elsewhereCount} i andre grupper`);
+    return createElement('button', {
+      className: 'card__children-toggle',
+      text: textParts.join(' '),
+      attributes: { type: 'button' },
+      dataset: { toggleEpic: epicKey },
+    });
+  }
+
+  renderCard(issue, { isNested }) {
+    const settings = this.state.getSettings();
+    const groups = this.state.getGroups();
+    const placement = this.state.getPlacement(issue.key);
+    const conflictingGroupLabels = GroupLabelRules.findConflictingGroupLabels(issue, placement, groups);
+
+    const card = createElement('article', {
+      className: ['card', `card--${this.toCssName(issue.type)}`, settings.compactCards && 'is-compact'].filter(Boolean).join(' '),
+      attributes: { draggable: 'true', title: `${issue.key}: ${issue.summary}` },
+      dataset: { issueKey: issue.key },
+    }, [this.renderMainLine(issue, settings, conflictingGroupLabels)]);
+
+    if (!settings.compactCards) {
+      card.append(...[
+        this.renderFields(issue, settings, isNested),
+        settings.showOtherLabels && this.renderLabels(GroupLabelRules.findLabelsToShowOnCard(issue, placement, groups)),
+      ].filter(Boolean));
+    }
+    return card;
+  }
+
+  renderMainLine(issue, settings, conflictingGroupLabels) {
+    const header = createElement('div', { className: 'card__header' }, [
+      settings.visibleCardFields.includes('type') && createElement('span', { className: 'card__type', text: issue.type }),
+      createElement('span', { className: 'card__key', text: issue.key }),
+      conflictingGroupLabels.length > 0 && createElement('span', {
+        className: 'card__warning-icon',
+        text: '⚠',
+        attributes: { title: `Flere grupper: ${conflictingGroupLabels.join(', ')}` },
+      }),
+    ]);
+    return createElement('div', { className: 'card__main' }, [
+      header,
+      createElement('div', { className: 'card__summary', text: issue.summary }),
+    ]);
+  }
+
+  renderFields(issue, settings, isNested) {
+    const fieldElements = CARD_FIELDS
+      .filter(field => field.readValue && settings.visibleCardFields.includes(field.id))
+      .filter(field => !(isNested && field.id === 'epic'))
+      .map(field => ({ field, value: field.readValue(issue, this.state) }))
+      .filter(({ value }) => value)
+      .map(({ field, value }) => createElement('span', { className: 'card__field', text: `${field.label}: ${value}` }));
+    return fieldElements.length > 0 && createElement('div', { className: 'card__fields' }, fieldElements);
+  }
+
+  renderLabels(labels) {
+    return labels.length > 0 && createElement('div', { className: 'card__labels' },
+      labels.map(label => createElement('span', { className: 'label-chip', text: label })));
+  }
+
+  toCssName(issueType) {
+    return issueType.toLowerCase().replace(/\W+/g, '-');
+  }
+}
+
+/* ==========================================================================
+   GroupGridLayout: fordeler gruppene på flaten
+   ========================================================================== */
+
+const GroupGridLayout = {
+  MIN_GROUP_WIDTH: 260,
+  MIN_GROUP_HEIGHT: 300,
+  GAP: 12,
+  /** Tomme grupper får halv bredde i raden sin. Kun tom/ikke tom, så gruppene ikke endrer bredde ved hver flytting. */
+  EMPTY_GROUP_WIDTH_WEIGHT: 0.5,
+
+  /**
+   * Gruppene deler flaten. Blir de mindre enn minstestørrelsen,
+   * brytes de over flere rader, og flaten ruller.
+   */
+  calculate(groupCount, availableWidth, availableHeight) {
+    if (groupCount === 0) return { columnCount: 1, rowCount: 0, rowHeight: this.MIN_GROUP_HEIGHT, needsScrolling: false };
+    const maxColumnCount = Math.max(1, Math.floor((availableWidth + this.GAP) / (this.MIN_GROUP_WIDTH + this.GAP)));
+    const rowCount = Math.ceil(groupCount / maxColumnCount);
+    const columnCount = Math.ceil(groupCount / rowCount);
+    const heightPerRow = Math.floor((availableHeight - this.GAP * (rowCount - 1)) / rowCount);
+    return {
+      columnCount,
+      rowCount,
+      rowHeight: Math.max(this.MIN_GROUP_HEIGHT, heightPerRow),
+      needsScrolling: heightPerRow < this.MIN_GROUP_HEIGHT,
+    };
+  },
+
+  widthWeight(issueCount) {
+    return issueCount === 0 ? this.EMPTY_GROUP_WIDTH_WEIGHT : 1;
+  },
+};
+
+/* ==========================================================================
+   ScrollMemory: beholder rulleposisjon når innhold tegnes på nytt
+   ========================================================================== */
+
+const ScrollMemory = {
+  capture(rootElement) {
+    const scrollTopByZone = new Map();
+    for (const element of rootElement.querySelectorAll('[data-scroll-id]')) {
+      scrollTopByZone.set(element.dataset.scrollId, element.scrollTop);
+    }
+    return scrollTopByZone;
+  },
+
+  restore(rootElement, scrollTopByZone) {
+    for (const element of rootElement.querySelectorAll('[data-scroll-id]')) {
+      element.scrollTop = scrollTopByZone.get(element.dataset.scrollId) ?? 0;
+    }
+  },
+};
+
+/* ==========================================================================
+   BoardRenderer: tegner gruppene på tavla
+   ========================================================================== */
+
+class BoardRenderer {
+  constructor(boardState, cardRenderer, boardElement) {
+    this.state = boardState;
+    this.cardRenderer = cardRenderer;
+    this.boardElement = boardElement;
+  }
+
+  render() {
+    const boardScroll = this.boardElement.scrollTop;
+    const groupScroll = ScrollMemory.capture(this.boardElement);
+
+    this.boardElement.replaceChildren(this.renderContent());
+    this.applyGridLayout();
+
+    this.boardElement.scrollTop = boardScroll;
+    ScrollMemory.restore(this.boardElement, groupScroll);
+  }
+
+  renderContent() {
+    if (!this.state.hasIssues()) {
+      return this.renderEmptyMessage('Last opp en CSV-eksport fra Jira for å starte. Filen må inneholde epics og stories/tasks/bugs.');
+    }
+    if (this.state.getGroups().length === 0) {
+      return this.renderEmptyMessage('Ingen grupper ennå. Velg hvilke labels som skal være grupper under ⚙ Innstillinger, eller opprett en ny gruppe.');
+    }
+    const fragment = document.createDocumentFragment();
+    fragment.append(
+      this.renderTargetStrip(),
+      createElement('div', { className: 'group-grid' }, this.state.getGroups().map(group => this.renderGroup(group))),
+    );
+    return fragment;
+  }
+
+  /** Kompakte slippmål for alle grupper. Vises bare når gruppene ikke får plass på skjermen. */
+  renderTargetStrip() {
+    return createElement('nav', { className: 'target-strip', attributes: { 'aria-label': 'Alle grupper' } },
+      this.state.getGroups().map((group, index) => createElement('button', {
+        className: 'target-chip',
+        attributes: { type: 'button', title: `Slipp kort her, eller klikk for å gå til «${group}»` },
+        dataset: { dropGroup: group, scrollToGroup: group },
+      }, [
+        index < 9 && createElement('kbd', { className: 'shortcut', text: String(index + 1) }),
+        createElement('span', { className: 'target-chip__name', text: group }),
+        createElement('span', { className: 'group__count', text: String(this.state.countIssuesInGroup(group)) }),
+      ])));
+  }
+
+  scrollToGroup(group) {
+    this.findGroupElement(group)?.scrollIntoView({ block: 'start' });
+  }
+
+  findGroupElement(group) {
+    return [...this.boardElement.querySelectorAll('.group')].find(element => element.dataset.dropGroup === group);
+  }
+
+  renderEmptyMessage(text) {
+    return createElement('p', { className: 'board__empty', text });
+  }
+
+  renderGroup(group) {
+    const cards = this.state.getTopLevelIssuesIn(group)
+      .sort(this.epicsFirstThenByKey)
+      .map(issue => this.cardRenderer.renderTopLevelCard(issue));
+
+    const shortcutNumber = this.state.getGroups().indexOf(group) + 1;
+    const issueCount = this.state.countIssuesInGroup(group);
+    const groupElement = createElement('section', { className: 'group', dataset: { dropGroup: group } }, [
+      createElement('header', { className: 'group__header' }, [
+        shortcutNumber <= 9 && createElement('kbd', {
+          className: 'shortcut',
+          text: String(shortcutNumber),
+          attributes: { title: `Trykk ${shortcutNumber} for å flytte valgte kort hit` },
+        }),
+        createElement('span', { className: 'group__name', text: group, attributes: { title: group } }),
+        createElement('span', { className: 'group__count', text: `(${issueCount})` }),
+        createElement('button', {
+          className: 'group__remove',
+          text: '×',
+          attributes: { type: 'button', title: 'Fjern gruppen' },
+          dataset: { removeGroup: group },
+        }),
+      ]),
+      createElement('div', { className: 'group__body', dataset: { scrollId: `group:${group}` } }, cards),
+    ]);
+    groupElement.style.setProperty('--width-weight', String(GroupGridLayout.widthWeight(issueCount)));
+    return groupElement;
+  }
+
+  epicsFirstThenByKey(issueA, issueB) {
+    const isEpicA = issueA.type === EPIC_TYPE;
+    const isEpicB = issueB.type === EPIC_TYPE;
+    if (isEpicA !== isEpicB) return isEpicA ? -1 : 1;
+    return byIssueKey(issueA, issueB);
+  }
+
+  /** Fordeler gruppene i rader. Kalles også når vinduet endrer størrelse. */
+  applyGridLayout() {
+    const grid = this.boardElement.querySelector('.group-grid');
+    if (!grid) return;
+    const groupElements = [...grid.querySelectorAll('.group')];
+    const padding = GroupGridLayout.GAP * 2;
+    const { columnCount, rowHeight, needsScrolling } = GroupGridLayout.calculate(
+      groupElements.length,
+      this.boardElement.clientWidth - padding,
+      this.boardElement.clientHeight - padding,
+    );
+
+    const rows = [];
+    for (let start = 0; start < groupElements.length; start += columnCount) {
+      const row = createElement('div', { className: 'group-row' }, groupElements.slice(start, start + columnCount));
+      row.style.height = `${rowHeight}px`;
+      rows.push(row);
+    }
+    grid.replaceChildren(...rows);
+    this.boardElement.querySelector('.target-strip').hidden = !needsScrolling;
+  }
+}
+
+/* ==========================================================================
+   UnsortedPanel: usorterte tickets med filter og sortering
+   ========================================================================== */
+
+const UNSORTED_SORT_ORDERS = {
+  key: { label: 'Sorter: Key', compare: byIssueKey },
+  newest: { label: 'Sorter: Nyeste først', compare: (a, b) => b.created.localeCompare(a.created) || byIssueKey(a, b) },
+  type: { label: 'Sorter: Type', compare: (a, b) => a.type.localeCompare(b.type) || byIssueKey(a, b) },
+  status: { label: 'Sorter: Status', compare: (a, b) => a.status.localeCompare(b.status) || byIssueKey(a, b) },
+  summary: { label: 'Sorter: Tittel', compare: (a, b) => a.summary.localeCompare(b.summary) || byIssueKey(a, b) },
+};
+
+class UnsortedPanel {
+  constructor(boardState, cardRenderer) {
+    this.state = boardState;
+    this.cardRenderer = cardRenderer;
+    this.elements = {
+      count: document.getElementById('unsorted-count'),
+      resetButton: document.getElementById('unsorted-reset-button'),
+      searchInput: document.getElementById('unsorted-search'),
+      typeFilter: document.getElementById('unsorted-type-filter'),
+      labelFilter: document.getElementById('unsorted-label-filter'),
+      statusFilter: document.getElementById('unsorted-status-filter'),
+      sortSelect: document.getElementById('unsorted-sort'),
+      list: document.getElementById('unsorted-list'),
+    };
+    this.bindControls();
+  }
+
+  get filter() {
+    return this.state.getSettings().unsortedFilter;
+  }
+
+  updateFilter(changedFilter) {
+    this.state.updateSettings({ unsortedFilter: { ...this.filter, ...changedFilter } });
+  }
+
+  bindControls() {
+    const { searchInput, sortSelect, resetButton } = this.elements;
+    searchInput.addEventListener('input', () => this.updateFilter({ searchText: searchInput.value }));
+    resetButton.addEventListener('click', () => this.updateFilter({ ...DEFAULT_SETTINGS.unsortedFilter }));
+
+    sortSelect.replaceChildren(...Object.entries(UNSORTED_SORT_ORDERS).map(([id, order]) =>
+      createElement('option', { text: order.label, attributes: { value: id } })));
+    sortSelect.addEventListener('change', () => this.state.updateSettings({ unsortedSortOrder: sortSelect.value }));
+  }
+
+  render() {
+    this.renderControlValues();
+    this.renderTypeFilter();
+    this.renderLabelFilter();
+    this.renderStatusFilter();
+    this.renderCards();
+  }
+
+  renderControlValues() {
+    const { searchInput, sortSelect, resetButton } = this.elements;
+    if (searchInput.value !== this.filter.searchText) searchInput.value = this.filter.searchText;
+    sortSelect.value = this.state.getSettings().unsortedSortOrder;
+    resetButton.hidden = !this.isFilterActive();
+  }
+
+  renderTypeFilter() {
+    const unsortedIssues = this.getAllUnsortedIssues();
+    this.elements.typeFilter.replaceChildren(...IMPORTED_ISSUE_TYPES.map(type => {
+      const checkbox = createElement('input', { attributes: { type: 'checkbox' } });
+      checkbox.checked = this.filter.types.includes(type);
+      checkbox.addEventListener('change', () => this.updateFilter({ types: this.toggleValue(this.filter.types, type) }));
+      const unsortedCount = unsortedIssues.filter(issue => issue.type === type).length;
+      return createElement('label', { className: 'chip' }, [
+        checkbox,
+        document.createTextNode(type),
+        createElement('span', { className: 'chip__count', text: String(unsortedCount) }),
+      ]);
+    }));
+  }
+
+  renderLabelFilter() {
+    this.renderMultiSelectFilter(this.elements.labelFilter, {
+      title: 'Labels',
+      filterKey: 'labels',
+      readValues: issue => issue.labels,
+    });
+  }
+
+  renderStatusFilter() {
+    this.renderMultiSelectFilter(this.elements.statusFilter, {
+      title: 'Status',
+      filterKey: 'statuses',
+      readValues: issue => (issue.status ? [issue.status] : []),
+    });
+  }
+
+  /**
+   * Nedtrekksliste med avkrysning. Viser verdiene som finnes blant usorterte tickets,
+   * med antall, pluss eventuelle valgte verdier som ikke lenger finnes.
+   */
+  renderMultiSelectFilter(detailsElement, { title, filterKey, readValues }) {
+    const selectedValues = this.filter[filterKey];
+    detailsElement.querySelector('summary').textContent = selectedValues.length > 0
+      ? `${title} (${selectedValues.length} valgt)`
+      : `${title}: alle`;
+
+    const unsortedCountByValue = new Map();
+    for (const issue of this.getAllUnsortedIssues()) {
+      for (const value of readValues(issue)) unsortedCountByValue.set(value, (unsortedCountByValue.get(value) ?? 0) + 1);
+    }
+    const values = [...new Set([...unsortedCountByValue.keys(), ...selectedValues])].sort((a, b) => a.localeCompare(b));
+
+    detailsElement.querySelector('.label-filter__options').replaceChildren(...values.map(value => createCheckboxRow({
+      text: value,
+      count: unsortedCountByValue.get(value) ?? 0,
+      isChecked: selectedValues.includes(value),
+      onToggle: () => this.updateFilter({ [filterKey]: this.toggleValue(this.filter[filterKey], value) }),
+    })));
+  }
+
+  getAllUnsortedIssues() {
+    return this.state.getAllIssues().filter(issue => this.state.getPlacement(issue.key) === UNSORTED);
+  }
+
+  renderCards() {
+    const scrollTop = this.elements.list.scrollTop;
+    const unsortedTopLevel = this.state.getTopLevelIssuesIn(UNSORTED);
+    const visibleTopLevel = unsortedTopLevel
+      .filter(issue => this.matchesFilter(issue) || this.hasMatchingNestedChild(issue))
+      .sort((UNSORTED_SORT_ORDERS[this.state.getSettings().unsortedSortOrder] ?? UNSORTED_SORT_ORDERS.key).compare);
+
+    this.elements.list.replaceChildren(...visibleTopLevel.map(issue =>
+      this.cardRenderer.renderTopLevelCard(issue, this.childFilterFor(issue))));
+    this.elements.list.scrollTop = scrollTop;
+
+    const unsortedCount = this.state.countIssuesInGroup(UNSORTED);
+    this.elements.count.textContent = this.isFilterActive()
+      ? `(${visibleTopLevel.length} treff av ${unsortedCount})`
+      : `(${unsortedCount})`;
+  }
+
+  /** Viser epicen alle barna når den selv treffer filteret, ellers bare barna som treffer. */
+  childFilterFor(issue) {
+    return this.matchesFilter(issue) ? () => true : child => this.matchesFilter(child);
+  }
+
+  hasMatchingNestedChild(issue) {
+    return issue.type === EPIC_TYPE
+      && this.state.getNestedChildren(issue.key).some(child => this.matchesFilter(child));
+  }
+
+  matchesFilter(issue) {
+    const { types, labels, statuses, searchText } = this.filter;
+    const matchesType = types.length === 0 || types.includes(issue.type);
+    const matchesLabels = labels.length === 0 || issue.labels.some(label => labels.includes(label));
+    const matchesStatus = statuses.length === 0 || statuses.includes(issue.status);
+    const searchTerm = searchText.trim().toLowerCase();
+    const matchesSearch = searchTerm === ''
+      || issue.key.toLowerCase().includes(searchTerm)
+      || issue.summary.toLowerCase().includes(searchTerm);
+    return matchesType && matchesLabels && matchesStatus && matchesSearch;
+  }
+
+  isFilterActive() {
+    const { types, labels, statuses, searchText } = this.filter;
+    return types.length > 0 || labels.length > 0 || statuses.length > 0 || searchText.trim() !== '';
+  }
+
+  toggleValue(values, value) {
+    return values.includes(value) ? values.filter(existing => existing !== value) : [...values, value];
+  }
+}
+
+/* ==========================================================================
+   SettingsPanel: grupper fra labels, nye grupper og kortvisning
+   ========================================================================== */
+
+class SettingsPanel {
+  /**
+   * @param onCreateGroupRequested (name) => void
+   * @param onRemoveGroupRequested (label) => Promise<void>
+   */
+  constructor(boardState, panelElement, { onCreateGroupRequested, onRemoveGroupRequested }) {
+    this.state = boardState;
+    this.panelElement = panelElement;
+    this.onCreateGroupRequested = onCreateGroupRequested;
+    this.onRemoveGroupRequested = onRemoveGroupRequested;
+  }
+
+  get isOpen() { return !this.panelElement.hidden; }
+  open() { this.panelElement.hidden = false; this.render(); }
+  close() { this.panelElement.hidden = true; }
+  toggle() { if (this.isOpen) this.close(); else this.open(); }
+
+  render() {
+    if (!this.isOpen) return;
+    const scrollTop = this.panelElement.scrollTop;
+    this.panelElement.replaceChildren(
+      this.renderHeader(),
+      this.renderNewGroupSection(),
+      this.renderGroupLabelSection(),
+      this.renderCardDisplaySection(),
+    );
+    this.panelElement.scrollTop = scrollTop;
+  }
+
+  renderHeader() {
+    const closeButton = createElement('button', { text: 'Lukk', attributes: { type: 'button' } });
+    closeButton.addEventListener('click', () => this.close());
+    return createElement('div', { className: 'settings-panel__header' }, [
+      createElement('h2', { text: 'Innstillinger' }),
+      closeButton,
+    ]);
+  }
+
+  renderNewGroupSection() {
+    const nameInput = createElement('input', { className: 'text-input', attributes: { placeholder: 'Navn på ny label', required: '' } });
+    const form = createElement('form', { className: 'inline-form' }, [
+      nameInput,
+      createElement('button', { text: 'Opprett', attributes: { type: 'submit' } }),
+    ]);
+    form.addEventListener('submit', event => {
+      event.preventDefault();
+      this.onCreateGroupRequested(nameInput.value);
+    });
+    return createElement('section', {}, [
+      createElement('h3', { text: 'Ny gruppe' }),
+      createElement('p', { className: 'settings-panel__hint', text: 'Mellomrom blir erstattet med _ fordi Jira-labels ikke kan inneholde mellomrom.' }),
+      form,
+    ]);
+  }
+
+  renderGroupLabelSection() {
+    const groups = this.state.getGroups();
+    const usageByLabel = this.state.countLabelUsage();
+    const allLabels = [...new Set([...usageByLabel.keys(), ...groups])].sort((a, b) => a.localeCompare(b));
+
+    return createElement('section', {}, [
+      createElement('h3', { text: 'Grupper (labels)' }),
+      createElement('p', { className: 'settings-panel__hint', text: 'Avkryssede labels vises som grupper på tavla. Tallet er antall tickets med labelen.' }),
+      ...allLabels.map(label => createCheckboxRow({
+        text: label,
+        count: usageByLabel.get(label) ?? 0,
+        isChecked: groups.includes(label),
+        onToggle: async isChecked => {
+          if (isChecked) this.state.addGroup(label);
+          else await this.onRemoveGroupRequested(label);
+          this.render();
+        },
+      })),
+    ]);
+  }
+
+  renderCardDisplaySection() {
+    const settings = this.state.getSettings();
+    return createElement('section', {}, [
+      createElement('h3', { text: 'Kortvisning' }),
+      createCheckboxRow({
+        text: 'Vis øvrige labels på kortene',
+        isChecked: settings.showOtherLabels,
+        onToggle: isChecked => this.state.updateSettings({ showOtherLabels: isChecked }),
+      }),
+      createElement('p', { className: 'settings-panel__hint', text: 'Felter som vises på kortene (key og tittel vises alltid):' }),
+      ...CARD_FIELDS.map(field => createCheckboxRow({
+        text: field.label,
+        isChecked: settings.visibleCardFields.includes(field.id),
+        onToggle: isChecked => this.state.updateSettings({
+          visibleCardFields: isChecked
+            ? [...settings.visibleCardFields, field.id]
+            : settings.visibleCardFields.filter(id => id !== field.id),
+        }),
+      })),
+    ]);
+  }
+}
+
+/* ==========================================================================
+   IssueMover: flytter kort, og spør om spredte epic-barn skal samles
+   Brukes både av dra-og-slipp og tastatur.
+   ========================================================================== */
+
+class IssueMover {
+  /** @param onMoved ({ issueKeys, targetGroup }) => void, kalles etter at tavla er tegnet på nytt */
+  constructor(boardState, { onMoved }) {
+    this.state = boardState;
+    this.onMoved = onMoved;
+  }
+
+  /** @returns {Promise<boolean>} true hvis noe ble flyttet */
+  async moveIssues(issueKeys, targetGroup) {
+    const keysToMove = issueKeys.filter(key =>
+      this.state.getIssue(key) !== undefined && this.state.getPlacement(key) !== targetGroup);
+    if (keysToMove.length === 0) return false;
+
+    const scatteredChildren = this.findScatteredChildren(keysToMove, targetGroup);
+    const includeScatteredChildren = scatteredChildren.length > 0
+      ? await this.askWhetherToGatherChildren(keysToMove, scatteredChildren, targetGroup)
+      : false;
+    if (includeScatteredChildren === null) return false;
+
+    this.state.moveIssues(keysToMove, targetGroup, { includeScatteredChildren });
+    this.onMoved({ issueKeys: keysToMove, targetGroup });
+    return true;
+  }
+
+  /** Barn av epicene som flyttes, som ligger i andre grupper og ikke selv er valgt. */
+  findScatteredChildren(issueKeys, targetGroup) {
+    const scatteredByKey = new Map();
+    for (const issueKey of issueKeys) {
+      if (this.state.getIssue(issueKey).type !== EPIC_TYPE) continue;
+      for (const child of this.state.findScatteredChildren(issueKey, targetGroup)) {
+        if (!issueKeys.includes(child.key)) scatteredByKey.set(child.key, child);
+      }
+    }
+    return [...scatteredByKey.values()].sort(byIssueKey);
+  }
+
+  /** @returns {Promise<boolean|null>} true = samle, false = la ligge, null = avbryt */
+  async askWhetherToGatherChildren(issueKeys, scatteredChildren, targetGroup) {
+    const targetName = describeGroup(targetGroup);
+    const answer = await Dialog.ask({
+      title: issueKeys.length === 1
+        ? `Flytte ${issueKeys[0]} til «${targetName}»?`
+        : `Flytte ${issueKeys.length} kort til «${targetName}»?`,
+      paragraphs: [`${scatteredChildren.length} barn av epicene ligger i andre grupper:`],
+      details: scatteredChildren.map(child =>
+        `${child.key} (${describeGroup(this.state.getPlacement(child.key))}) ${child.summary}`),
+      actions: [
+        { label: 'Avbryt', value: 'cancel' },
+        { label: 'La dem ligge', value: 'leave' },
+        { label: `Samle alle i «${targetName}»`, value: 'gather', isPrimary: true },
+      ],
+    });
+    if (answer === 'gather') return true;
+    if (answer === 'leave') return false;
+    return null;
+  }
+}
+
+/* ==========================================================================
+   DragDropController: oversetter dra-og-slipp til flytting av kort
+   Drar man et valgt kort, følger hele utvalget med.
+   ========================================================================== */
+
+class DragDropController {
+  constructor(rootElement, selection, issueMover) {
+    this.rootElement = rootElement;
+    this.selection = selection;
+    this.issueMover = issueMover;
+    this.highlightedDropZone = null;
+  }
+
+  attach() {
+    this.rootElement.addEventListener('dragstart', event => this.handleDragStart(event));
+    this.rootElement.addEventListener('dragend', () => this.handleDragEnd());
+    this.rootElement.addEventListener('dragover', event => this.handleDragOver(event));
+    this.rootElement.addEventListener('drop', event => this.handleDrop(event));
+  }
+
+  handleDragStart(event) {
+    const card = event.target.closest?.('.card');
+    if (!card) return;
+    const draggedKey = card.dataset.issueKey;
+    const draggedKeys = this.selection.has(draggedKey) ? this.selection.getKeys() : [draggedKey];
+
+    event.dataTransfer.setData('text/plain', JSON.stringify(draggedKeys));
+    event.dataTransfer.effectAllowed = 'move';
+    if (draggedKeys.length > 1) this.useCountAsDragImage(event.dataTransfer, draggedKeys.length);
+    for (const key of draggedKeys) CardDomQueries.findCardElement(key)?.classList.add('is-dragging');
+  }
+
+  useCountAsDragImage(dataTransfer, cardCount) {
+    const dragImage = createElement('div', { className: 'drag-count', text: `${cardCount} kort` });
+    document.body.append(dragImage);
+    dataTransfer.setDragImage(dragImage, 12, 12);
+    setTimeout(() => dragImage.remove());
+  }
+
+  handleDragEnd() {
+    for (const card of this.rootElement.querySelectorAll('.card.is-dragging')) card.classList.remove('is-dragging');
+    this.highlightDropZone(null);
+  }
+
+  handleDragOver(event) {
+    const dropZone = event.target.closest?.('[data-drop-group]');
+    this.highlightDropZone(dropZone);
+    if (!dropZone) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
+  }
+
+  handleDrop(event) {
+    const dropZone = event.target.closest?.('[data-drop-group]');
+    this.highlightDropZone(null);
+    if (!dropZone) return;
+    event.preventDefault();
+    const targetGroup = dropZone.dataset.dropGroup === '' ? UNSORTED : dropZone.dataset.dropGroup;
+    this.issueMover.moveIssues(this.readDraggedKeys(event.dataTransfer), targetGroup);
+  }
+
+  readDraggedKeys(dataTransfer) {
+    const data = dataTransfer.getData('text/plain');
+    try {
+      const keys = JSON.parse(data);
+      return Array.isArray(keys) ? keys : [data];
+    } catch {
+      return [data];
+    }
+  }
+
+  highlightDropZone(dropZone) {
+    if (this.highlightedDropZone === dropZone) return;
+    this.highlightedDropZone?.classList.remove('is-drop-target');
+    dropZone?.classList.add('is-drop-target');
+    this.highlightedDropZone = dropZone;
+  }
+}
+
+/* ==========================================================================
+   SelectionHighlighter: markerer valgte kort, og uthever barna til valgte epics
+   ========================================================================== */
+
+const SelectionHighlighter = {
+  apply(rootElement, boardState, selectedKeys) {
+    const selectedEpicKeys = new Set(selectedKeys.filter(key => boardState.getIssue(key)?.type === EPIC_TYPE));
+    const selectedKeySet = new Set(selectedKeys);
+    for (const card of rootElement.querySelectorAll('.card')) {
+      const issue = boardState.getIssue(card.dataset.issueKey);
+      const isSelected = selectedKeySet.has(card.dataset.issueKey);
+      const isChildOfSelectedEpic = !isSelected && selectedEpicKeys.has(issue?.epicKey);
+      card.classList.toggle('is-selected', isSelected);
+      card.classList.toggle('is-highlighted-child', isChildOfSelectedEpic);
+      card.classList.toggle('is-dimmed', selectedEpicKeys.size > 0 && !isSelected && !isChildOfSelectedEpic);
+    }
+  },
+};
+
+/* ==========================================================================
+   CardReveal: ruller et kort fram i sin egen liste uten å flytte resten av tavla
+   ========================================================================== */
+
+const CardReveal = {
+  MARGIN: 8,
+
+  reveal(cardElement) {
+    const scrollContainer = cardElement?.closest('.group__body, .card-list');
+    if (!scrollContainer) return;
+    const containerBox = scrollContainer.getBoundingClientRect();
+    const cardBox = cardElement.getBoundingClientRect();
+    if (cardBox.top < containerBox.top) {
+      scrollContainer.scrollTop -= containerBox.top - cardBox.top + this.MARGIN;
+    } else if (cardBox.bottom > containerBox.bottom) {
+      scrollContainer.scrollTop += cardBox.bottom - containerBox.bottom + this.MARGIN;
+    }
+  },
+};
+
+/* ==========================================================================
+   MoveFeedback: viser hvor kortene havnet, og gir mulighet til å angre
+   ========================================================================== */
+
+class MoveFeedback {
+  static HIGHLIGHT_DURATION_MS = 1600;
+  static MESSAGE_DURATION_MS = 6000;
+
+  /** @param onUndoRequested () => void */
+  constructor(messageElement, { onUndoRequested }) {
+    this.messageElement = messageElement;
+    this.onUndoRequested = onUndoRequested;
+    this.hideTimer = null;
+  }
+
+  show({ issueKeys, targetGroup }) {
+    this.highlightMovedCards(issueKeys);
+    this.showMessage(issueKeys, targetGroup);
+  }
+
+  highlightMovedCards(issueKeys) {
+    const movedCards = issueKeys.map(key => CardDomQueries.findCardElement(key)).filter(Boolean);
+    CardReveal.reveal(movedCards[0]);
+    for (const card of movedCards) card.classList.add('is-just-moved');
+    setTimeout(() => movedCards.forEach(card => card.classList.remove('is-just-moved')), MoveFeedback.HIGHLIGHT_DURATION_MS);
+  }
+
+  showMessage(issueKeys, targetGroup) {
+    const what = issueKeys.length === 1 ? issueKeys[0] : `${issueKeys.length} kort`;
+    const undoButton = createElement('button', { text: 'Angre', attributes: { type: 'button' } });
+    undoButton.addEventListener('click', () => this.onUndoRequested());
+    this.messageElement.replaceChildren(
+      createElement('span', { text: `Flyttet ${what} til «${describeGroup(targetGroup)}»` }),
+      undoButton,
+    );
+    this.messageElement.hidden = false;
+    clearTimeout(this.hideTimer);
+    this.hideTimer = setTimeout(() => this.hide(), MoveFeedback.MESSAGE_DURATION_MS);
+  }
+
+  hide() {
+    clearTimeout(this.hideTimer);
+    this.messageElement.hidden = true;
+  }
+}
+
+/* ==========================================================================
+   KeyboardShortcuts: oversetter tastetrykk til handlinger
+   1–9 flytter valgte kort til gruppe 1–9, 0 til usortert.
+   ========================================================================== */
+
+class KeyboardShortcuts {
+  /**
+   * @param handlers { onUndo, onClearSelection, onMoveSelectionToShortcut(number), onStepSelection(direction), onFocusSearch }
+   */
+  constructor(handlers) {
+    this.handlers = handlers;
+  }
+
+  attach() {
+    document.addEventListener('keydown', event => this.handleKeyDown(event));
+  }
+
+  handleKeyDown(event) {
+    if (this.isTypingInField(event.target) || document.getElementById('dialog').open) return;
+
+    const isUndo = (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z';
+    const action = isUndo ? () => this.handlers.onUndo()
+      : event.key === 'Escape' ? () => this.handlers.onClearSelection()
+      : /^[0-9]$/.test(event.key) && !event.ctrlKey && !event.metaKey && !event.altKey ? () => this.handlers.onMoveSelectionToShortcut(Number(event.key))
+      : event.key === 'ArrowDown' ? () => this.handlers.onStepSelection(1)
+      : event.key === 'ArrowUp' ? () => this.handlers.onStepSelection(-1)
+      : event.key === '/' ? () => this.handlers.onFocusSearch()
+      : null;
+    if (!action) return;
+    event.preventDefault();
+    action();
+  }
+
+  isTypingInField(element) {
+    return element instanceof Element
+      && element.closest('input:not([type="checkbox"]), select, textarea, [contenteditable="true"]') !== null;
+  }
+}
+
+/* ==========================================================================
+   PanelResizer: lar brukeren dra i skillet mellom usortert og tavla
+   ========================================================================== */
+
+class PanelResizer {
+  static MIN_WIDTH = 260;
+  static MAX_SHARE_OF_WINDOW = 0.6;
+  static KEYBOARD_STEP = 20;
+
+  /** @param onWidthChosen (width|null) => void, null betyr standardbredde */
+  constructor(resizerElement, workspaceElement, onWidthChosen) {
+    this.resizerElement = resizerElement;
+    this.workspaceElement = workspaceElement;
+    this.onWidthChosen = onWidthChosen;
+  }
+
+  attach() {
+    this.resizerElement.addEventListener('pointerdown', event => this.startDragging(event));
+    this.resizerElement.addEventListener('dblclick', () => this.onWidthChosen(null));
+    this.resizerElement.addEventListener('keydown', event => this.handleKey(event));
+  }
+
+  static applyWidth(workspaceElement, width) {
+    if (width) workspaceElement.style.setProperty('--unsorted-panel-width', `${width}px`);
+    else workspaceElement.style.removeProperty('--unsorted-panel-width');
+  }
+
+  startDragging(event) {
+    event.preventDefault();
+    this.resizerElement.setPointerCapture(event.pointerId);
+    let chosenWidth = this.currentWidth();
+    const followPointer = moveEvent => {
+      chosenWidth = this.limitWidth(moveEvent.clientX - this.workspaceElement.getBoundingClientRect().left);
+      PanelResizer.applyWidth(this.workspaceElement, chosenWidth);
+    };
+    const stopDragging = () => {
+      this.resizerElement.removeEventListener('pointermove', followPointer);
+      this.onWidthChosen(chosenWidth);
+    };
+    this.resizerElement.addEventListener('pointermove', followPointer);
+    this.resizerElement.addEventListener('pointerup', stopDragging, { once: true });
+  }
+
+  handleKey(event) {
+    const direction = { ArrowLeft: -1, ArrowRight: 1 }[event.key];
+    if (!direction) return;
+    event.preventDefault();
+    this.onWidthChosen(this.limitWidth(this.currentWidth() + direction * PanelResizer.KEYBOARD_STEP));
+  }
+
+  currentWidth() {
+    return this.resizerElement.previousElementSibling.getBoundingClientRect().width;
+  }
+
+  limitWidth(width) {
+    const maxWidth = window.innerWidth * PanelResizer.MAX_SHARE_OF_WINDOW;
+    return Math.round(Math.min(maxWidth, Math.max(PanelResizer.MIN_WIDTH, width)));
+  }
+}
+
+/* ==========================================================================
+   ImportWorkflow: fil -> validering -> sammenslåing eller erstatning
+   ========================================================================== */
+
+class ImportWorkflow {
+  constructor(boardState, { onImported }) {
+    this.state = boardState;
+    this.onImported = onImported;
+  }
+
+  async importFile(file) {
+    const text = await file.text();
+    const mappingResult = JiraIssueMapper.map(CsvFormat.parse(text));
+    const errors = ImportValidator.validate(mappingResult);
+    if (errors.length > 0) {
+      await this.showErrors(file.name, errors);
+      return;
+    }
+
+    const importMode = this.state.hasIssues() ? await this.askImportMode() : 'replace';
+    if (importMode === 'merge') this.state.mergeImport(mappingResult.issues);
+    else if (importMode === 'replace') this.state.replaceImport(mappingResult.issues);
+    else return;
+
+    this.onImported(importMode);
+  }
+
+  showErrors(fileName, errors) {
+    return Dialog.ask({
+      title: 'Importen feilet',
+      paragraphs: [`Filen «${fileName}» ble ikke importert. Tavla er uendret.`, ...errors.map(error => error.message)],
+      details: errors.flatMap(error => error.details),
+      actions: [{ label: 'Lukk', value: 'close', isPrimary: true }],
+    });
+  }
+
+  async askImportMode() {
+    const answer = await Dialog.ask({
+      title: 'Hvordan vil du importere?',
+      paragraphs: [
+        'Slå sammen: plasseringene dine beholdes, data oppdateres, og nye tickets plasseres etter labels.',
+        'Erstatt alt: tavla og gruppene nullstilles og bygges på nytt fra filen.',
+      ],
+      actions: [
+        { label: 'Avbryt', value: 'cancel' },
+        { label: 'Erstatt alt', value: 'replace' },
+        { label: 'Slå sammen', value: 'merge', isPrimary: true },
+      ],
+    });
+    return answer === 'merge' || answer === 'replace' ? answer : null;
+  }
+}
+
+/* ==========================================================================
+   LabelChangeCalculator: hvilke tickets får andre labels enn de har i Jira?
+   Endring = { issue, group, newLabels[], addedLabels[], removedLabels[] }
+   ========================================================================== */
+
+const LabelChangeCalculator = {
+  /** Sortert etter gruppenes rekkefølge, deretter key. Usorterte og uendrede tickets er ikke med. */
+  findChanges(boardState) {
+    const groups = boardState.getGroups();
+    return boardState.getAllIssues()
+      .filter(issue => boardState.getPlacement(issue.key) !== UNSORTED)
+      .map(issue => this.describeChange(issue, boardState.getPlacement(issue.key), groups))
+      .filter(change => change.addedLabels.length > 0 || change.removedLabels.length > 0)
+      .sort((changeA, changeB) =>
+        groups.indexOf(changeA.group) - groups.indexOf(changeB.group) || byIssueKey(changeA.issue, changeB.issue));
+  },
+
+  describeChange(issue, group, groups) {
+    const newLabels = GroupLabelRules.resolveEffectiveLabels(issue, group, groups);
+    return {
+      issue,
+      group,
+      newLabels,
+      addedLabels: newLabels.filter(label => !issue.labels.includes(label)),
+      removedLabels: issue.labels.filter(label => !newLabels.includes(label)),
+    };
+  },
+};
+
+/* ==========================================================================
+   ExportPreview: tabell over endringene, gruppert per epic
+   ========================================================================== */
+
+const ExportPreview = {
+  render(changes, boardState) {
+    const changesByEpic = this.groupByEpic(changes, boardState);
+    const epicCount = [...changesByEpic.keys()].filter(epicKey => epicKey !== null).length;
+
+    return createElement('div', { className: 'export-preview' }, [
+      createElement('p', { text: this.describeTotals(changes, epicCount) }),
+      createElement('div', { className: 'export-preview__scroll' }, [
+        createElement('table', { className: 'change-table' }, [
+          createElement('thead', {}, [createElement('tr', {}, [
+            createElement('th', { text: 'Epic' }),
+            createElement('th', { text: 'Ticket' }),
+            createElement('th', { text: 'Endring i labels' }),
+          ])]),
+          createElement('tbody', {}, [...changesByEpic.entries()].flatMap(([epicKey, epicChanges]) =>
+            this.renderEpicRows(epicKey ? boardState.getIssue(epicKey) : null, epicChanges))),
+        ]),
+      ]),
+    ]);
+  },
+
+  describeTotals(changes, epicCount) {
+    const issueText = changes.length === 1 ? '1 ticket' : `${changes.length} tickets`;
+    const epicText = epicCount === 1 ? '1 epic' : `${epicCount} epics`;
+    return `${issueText} får endrede labels, fordelt på ${epicText}. Bare disse tas med i CSV-filen.`;
+  },
+
+  /** Epicen selv og barna dens samles under epicen. Tickets uten epic kommer til slutt. */
+  groupByEpic(changes, boardState) {
+    const changesByEpic = new Map();
+    for (const change of changes) {
+      const epicKey = change.issue.type === EPIC_TYPE ? change.issue.key : change.issue.epicKey;
+      const groupKey = epicKey && boardState.getIssue(epicKey) ? epicKey : null;
+      changesByEpic.set(groupKey, [...(changesByEpic.get(groupKey) ?? []), change]);
+    }
+    const sortedEpicKeys = [...changesByEpic.keys()].sort((keyA, keyB) =>
+      keyA === null ? 1 : keyB === null ? -1 : compareIssueKeys(keyA, keyB));
+    return new Map(sortedEpicKeys.map(epicKey => [epicKey, changesByEpic.get(epicKey).sort((changeA, changeB) =>
+      (changeA.issue.type === EPIC_TYPE ? -1 : 0) - (changeB.issue.type === EPIC_TYPE ? -1 : 0)
+      || byIssueKey(changeA.issue, changeB.issue))]));
+  },
+
+  renderEpicRows(epic, epicChanges) {
+    return epicChanges.map((change, index) => createElement('tr', {}, [
+      index === 0 && this.renderEpicCell(epic, epicChanges.length),
+      createElement('td', {}, [this.renderIssueDescription(change.issue)]),
+      createElement('td', {}, [this.renderLabelChange(change)]),
+    ]));
+  },
+
+  renderEpicCell(epic, rowCount) {
+    const cell = createElement('td', { className: 'change-table__epic', attributes: { rowspan: String(rowCount) } });
+    cell.append(epic ? this.renderIssueDescription(epic) : createElement('span', { className: 'change-table__no-epic', text: 'Uten epic' }));
+    return cell;
+  },
+
+  renderIssueDescription(issue) {
+    return createElement('div', { className: `change-table__issue card--${issue.type.toLowerCase()}` }, [
+      createElement('span', { className: 'change-table__key', text: issue.key }),
+      createElement('span', { text: issue.summary }),
+    ]);
+  },
+
+  renderLabelChange({ addedLabels, removedLabels }) {
+    return createElement('div', { className: 'label-change' }, [
+      ...removedLabels.map(label => createElement('span', { className: 'label-chip label-chip--removed', text: `− ${label}`, attributes: { title: 'Fjernes' } })),
+      ...addedLabels.map(label => createElement('span', { className: 'label-chip label-chip--added', text: `+ ${label}`, attributes: { title: 'Legges til' } })),
+    ]);
+  },
+};
+
+/* ==========================================================================
+   ExportService: CSV med Issue key, gruppe og labels slik de blir i Jira
+   ========================================================================== */
+
+const ExportService = {
+  buildRows(changes) {
+    const labelColumnCount = Math.max(1, ...changes.map(change => change.newLabels.length));
+    const header = ['Issue key', 'Gruppe', ...Array(labelColumnCount).fill('Labels')];
+    const dataRows = changes.map(change => [
+      change.issue.key,
+      change.group,
+      ...change.newLabels,
+      ...Array(labelColumnCount - change.newLabels.length).fill(''),
+    ]);
+    return [header, ...dataRows];
+  },
+
+  downloadCsv(changes) {
+    const csvText = '﻿' + CsvFormat.stringify(this.buildRows(changes), EXPORT_DELIMITER);
+    const blob = new Blob([csvText], { type: 'text/csv;charset=utf-8' });
+    const downloadLink = createElement('a', {
+      attributes: { href: URL.createObjectURL(blob), download: `jira-gruppering-${this.todayAsIsoDate()}.csv` },
+    });
+    document.body.append(downloadLink);
+    downloadLink.click();
+    downloadLink.remove();
+    URL.revokeObjectURL(downloadLink.href);
+  },
+
+  todayAsIsoDate() {
+    return new Date().toISOString().slice(0, 10);
+  },
+};
+
+/* ==========================================================================
+   OutsideClickCloser: lukker nedtrekkslister og paneler ved klikk utenfor
+   ========================================================================== */
+
+const OutsideClickCloser = {
+  /** Klikk her lukker ikke noe (dialoger åpnet fra et panel, og knappene som åpner panelene). */
+  IGNORED_SELECTOR: 'dialog, [data-opens-panel]',
+
+  /** @param closables { isOpen(), contains(target), close() }[] */
+  attach(closables) {
+    document.addEventListener('pointerdown', event => {
+      if (event.target.closest?.(this.IGNORED_SELECTOR)) return;
+      for (const closable of closables) {
+        if (closable.isOpen() && !closable.contains(event.target)) closable.close();
+      }
+    });
+    document.addEventListener('keydown', event => {
+      if (event.key !== 'Escape' || document.getElementById('dialog').open) return;
+      for (const closable of closables) if (closable.isOpen()) closable.close();
+    });
+  },
+
+  forDetailsElement(detailsElement) {
+    return {
+      isOpen: () => detailsElement.open,
+      contains: target => detailsElement.contains(target),
+      close: () => { detailsElement.open = false; },
+    };
+  },
+};
+
+/* ==========================================================================
+   SelectionBar: flytende linje som forteller hva som er valgt og hvilke taster som virker
+   ========================================================================== */
+
+const SelectionBar = {
+  render(barElement, boardState, selectedKeys) {
+    barElement.hidden = selectedKeys.length === 0;
+    if (selectedKeys.length === 0) return;
+
+    const groupCount = boardState.getGroups().length;
+    const shortcutRange = groupCount === 0 ? null : groupCount === 1 ? '1' : `1–${Math.min(groupCount, 9)}`;
+    const highlightedChildCount = selectedKeys
+      .filter(key => boardState.getIssue(key)?.type === EPIC_TYPE)
+      .reduce((count, epicKey) => count + boardState.getChildrenOfEpic(epicKey).length, 0);
+
+    const parts = [
+      createElement('strong', { text: selectedKeys.length === 1 ? selectedKeys[0] : `${selectedKeys.length} kort valgt` }),
+      highlightedChildCount > 0 && createElement('span', { text: `${highlightedChildCount} barn uthevet` }),
+      shortcutRange && createElement('span', {}, [createElement('kbd', { text: shortcutRange }), document.createTextNode(' flytt til gruppe')]),
+      createElement('span', {}, [createElement('kbd', { text: '0' }), document.createTextNode(' usortert')]),
+      createElement('span', {}, [createElement('kbd', { text: '↑↓' }), document.createTextNode(' neste kort')]),
+      createElement('span', {}, [createElement('kbd', { text: 'Esc' }), document.createTextNode(' fjern valg')]),
+    ];
+    barElement.replaceChildren(...parts.filter(Boolean));
+  },
+};
+
+/* ==========================================================================
+   App: kobler modulene sammen
+   ========================================================================== */
+
+class App {
+  constructor() {
+    this.state = new BoardState(BoardRepository.load() ?? {});
+    this.selection = new CardSelection();
+    this.workspaceElement = document.querySelector('.workspace');
+    this.boardElement = document.getElementById('board');
+    this.cardRenderer = new CardRenderer(this.state);
+    this.boardRenderer = new BoardRenderer(this.state, this.cardRenderer, this.boardElement);
+    this.unsortedPanel = new UnsortedPanel(this.state, this.cardRenderer);
+    this.settingsPanel = new SettingsPanel(this.state, document.getElementById('settings-panel'), {
+      onCreateGroupRequested: name => this.createGroup(name),
+      onRemoveGroupRequested: label => this.confirmAndRemoveGroup(label),
+    });
+    this.moveFeedback = new MoveFeedback(document.getElementById('move-message'), { onUndoRequested: () => this.undo() });
+    this.issueMover = new IssueMover(this.state, { onMoved: move => this.moveFeedback.show(move) });
+    this.dragDropController = new DragDropController(this.workspaceElement, this.selection, this.issueMover);
+    this.keyboardShortcuts = new KeyboardShortcuts({
+      onUndo: () => this.undo(),
+      onClearSelection: () => this.selection.clear(),
+      onMoveSelectionToShortcut: number => this.moveSelectionToShortcut(number),
+      onStepSelection: direction => this.stepSelection(direction),
+      onFocusSearch: () => document.getElementById('unsorted-search').focus(),
+    });
+    this.panelResizer = new PanelResizer(document.getElementById('panel-resizer'), this.workspaceElement,
+      width => this.state.updateSettings({ unsortedPanelWidth: width }));
+    this.importWorkflow = new ImportWorkflow(this.state, { onImported: importMode => this.handleImported(importMode) });
+  }
+
+  start() {
+    this.state.onChange(() => BoardRepository.save(this.state.toSnapshot()));
+    this.state.onChange(() => this.renderAll());
+    this.selection.onChange(() => this.renderSelection());
+
+    this.dragDropController.attach();
+    this.keyboardShortcuts.attach();
+    this.panelResizer.attach();
+    this.bindToolbar();
+    this.bindBoardActions();
+    this.bindCardSelection();
+    this.bindOutsideClickClosing();
+    new ResizeObserver(() => this.boardRenderer.applyGridLayout()).observe(this.boardElement);
+
+    this.renderAll();
+  }
+
+  renderAll() {
+    PanelResizer.applyWidth(this.workspaceElement, this.state.getSettings().unsortedPanelWidth);
+    this.boardRenderer.render();
+    this.unsortedPanel.render();
+    this.settingsPanel.render();
+    this.renderToolbarStatus();
+    this.selection.keepOnly(key => this.state.getIssue(key) !== undefined);
+    this.renderSelection();
+  }
+
+  renderToolbarStatus() {
+    const totalCount = this.state.getAllIssues().length;
+    document.getElementById('sorting-status').textContent = totalCount > 0
+      ? `${this.state.countIssuesInGroup(UNSORTED)} usortert av ${totalCount}`
+      : '';
+    document.getElementById('compact-toggle').checked = this.state.getSettings().compactCards;
+    document.getElementById('undo-button').disabled = !this.state.canUndo();
+  }
+
+  renderSelection() {
+    const selectedKeys = this.selection.getKeys();
+    SelectionHighlighter.apply(this.workspaceElement, this.state, selectedKeys);
+    SelectionBar.render(document.getElementById('selection-bar'), this.state, selectedKeys);
+  }
+
+  bindToolbar() {
+    const fileInput = document.getElementById('csv-file-input');
+    document.getElementById('upload-button').addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', async () => {
+      const [file] = fileInput.files;
+      fileInput.value = '';
+      if (file) await this.importWorkflow.importFile(file);
+    });
+
+    document.getElementById('new-group-button').addEventListener('click', () => {
+      const name = window.prompt('Navn på ny gruppe (label):');
+      if (name !== null) this.createGroup(name);
+    });
+    document.getElementById('undo-button').addEventListener('click', () => this.undo());
+    document.getElementById('settings-button').addEventListener('click', () => this.settingsPanel.toggle());
+    document.getElementById('compact-toggle').addEventListener('change', event =>
+      this.state.updateSettings({ compactCards: event.target.checked }));
+    document.getElementById('export-button').addEventListener('click', () => this.exportCsv());
+  }
+
+  bindBoardActions() {
+    this.workspaceElement.addEventListener('click', event => {
+      const toggleButton = event.target.closest('[data-toggle-epic]');
+      if (toggleButton) this.state.toggleEpicExpanded(toggleButton.dataset.toggleEpic);
+
+      const removeButton = event.target.closest('[data-remove-group]');
+      if (removeButton) this.confirmAndRemoveGroup(removeButton.dataset.removeGroup);
+
+      const targetChip = event.target.closest('[data-scroll-to-group]');
+      if (targetChip) this.boardRenderer.scrollToGroup(targetChip.dataset.scrollToGroup);
+    });
+  }
+
+  /** Åpne nedtrekkslister og innstillingspanelet lukkes ved klikk utenfor eller Escape. */
+  bindOutsideClickClosing() {
+    const settingsPanelElement = document.getElementById('settings-panel');
+    OutsideClickCloser.attach([
+      ...[...document.querySelectorAll('details.label-filter')].map(details => OutsideClickCloser.forDetailsElement(details)),
+      {
+        isOpen: () => this.settingsPanel.isOpen,
+        contains: target => settingsPanelElement.contains(target),
+        close: () => this.settingsPanel.close(),
+      },
+    ]);
+  }
+
+  undo() {
+    this.moveFeedback.hide();
+    this.state.undo();
+  }
+
+  /**
+   * Klikk velger ett kort (klikk igjen opphever). Ctrl/Cmd+klikk legger til eller fjerner.
+   * Shift+klikk velger alle kort mellom forrige og dette. Klikk på tomt område fjerner valget.
+   */
+  bindCardSelection() {
+    this.workspaceElement.addEventListener('click', event => {
+      if (event.target.closest('button, input, select, label, summary, details, .panel-resizer')) return;
+      const card = event.target.closest('.card');
+      if (!card) {
+        this.selection.clear();
+        return;
+      }
+      const issueKey = card.dataset.issueKey;
+      if (event.ctrlKey || event.metaKey) {
+        this.selection.toggle(issueKey);
+      } else if (event.shiftKey && this.selection.anchorKey) {
+        this.selection.addRange(CardDomQueries.listKeysBetween(this.selection.anchorKey, issueKey));
+      } else if (this.selection.has(issueKey) && this.selection.getKeys().length === 1) {
+        this.selection.clear();
+      } else {
+        this.selection.selectOnly(issueKey);
+      }
+    });
+  }
+
+  /** Flytter valgte kort med tastatur, og velger neste kort slik at brukeren kan fortsette. */
+  async moveSelectionToShortcut(shortcutNumber) {
+    if (this.selection.isEmpty()) return;
+    const targetGroup = shortcutNumber === 0 ? UNSORTED : this.state.getGroups()[shortcutNumber - 1];
+    if (targetGroup === undefined) return;
+
+    const selectedKeys = this.selection.getKeys();
+    const nextKey = CardDomQueries.findNextRemainingTopLevelKey(selectedKeys);
+    const hasMoved = await this.issueMover.moveIssues(selectedKeys, targetGroup);
+    if (!hasMoved) return;
+
+    const isNextKeyStillInPlace = nextKey !== null && this.state.getPlacement(nextKey) !== targetGroup;
+    if (isNextKeyStillInPlace) this.selectAndReveal(nextKey);
+    else this.selection.clear();
+  }
+
+  /** Piltaster flytter valget til forrige/neste synlige kort i samme gruppe. */
+  stepSelection(direction) {
+    const anchorKey = this.selection.anchorKey;
+    const container = anchorKey ? CardDomQueries.findContainerOf(anchorKey) : document.querySelector('.unsorted-panel');
+    if (!container) return;
+    const visibleKeys = CardDomQueries.listVisibleCardKeys(container);
+    const nextKey = anchorKey ? visibleKeys[visibleKeys.indexOf(anchorKey) + direction] : visibleKeys[0];
+    if (nextKey) this.selectAndReveal(nextKey);
+  }
+
+  selectAndReveal(issueKey) {
+    this.selection.selectOnly(issueKey);
+    CardReveal.reveal(CardDomQueries.findCardElement(issueKey));
+  }
+
+  handleImported(importMode) {
+    this.selection.clear();
+    if (importMode === 'replace') this.settingsPanel.open();
+  }
+
+  createGroup(name) {
+    const label = GroupLabelRules.toValidLabel(name);
+    if (label === '') return;
+    if (this.state.getGroups().includes(label)) {
+      Dialog.inform('Gruppen finnes allerede', [`Det finnes allerede en gruppe som heter «${label}».`]);
+      return;
+    }
+    this.state.addGroup(label);
+  }
+
+  async confirmAndRemoveGroup(label) {
+    const issueCount = this.state.countIssuesInGroup(label);
+    if (issueCount > 0) {
+      const answer = await Dialog.ask({
+        title: `Fjerne gruppen «${label}»?`,
+        paragraphs: [`${issueCount} tickets i gruppen flyttes til usortert.`],
+        actions: [
+          { label: 'Avbryt', value: 'cancel' },
+          { label: 'Fjern gruppen', value: 'remove', isPrimary: true },
+        ],
+      });
+      if (answer !== 'remove') return;
+    }
+    this.state.removeGroup(label);
+  }
+
+  /** Viser endringene først. CSV-filen lastes bare ned hvis brukeren bekrefter. */
+  async exportCsv() {
+    const changes = LabelChangeCalculator.findChanges(this.state);
+    if (changes.length === 0) {
+      Dialog.inform('Ingen endringer å eksportere', ['Ingen tickets i gruppene har fått andre labels enn de har i Jira.']);
+      return;
+    }
+    const answer = await Dialog.ask({
+      title: 'Endringer som eksporteres',
+      content: ExportPreview.render(changes, this.state),
+      isWide: true,
+      actions: [
+        { label: 'Avbryt', value: 'cancel' },
+        { label: `Last ned CSV (${changes.length})`, value: 'download', isPrimary: true },
+      ],
+    });
+    if (answer === 'download') ExportService.downloadCsv(changes);
+  }
+
+}
+
+new App().start();
+</script>
+</body>
+</html>
