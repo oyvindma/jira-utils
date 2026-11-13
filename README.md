@@ -30,7 +30,7 @@ Everything runs in the browser from a single file, `index.html`. There is no ser
 ## Getting started
 
 1. Open `index.html` in a modern browser (Chrome, Edge or Firefox).
-2. Click **📂 Last opp CSV** and choose your Jira export.
+2. Click **📂 Last opp CSV** and choose your Jira export, or drag the file from your file explorer and drop it anywhere on the page.
 3. **⚙ Innstillinger** opens. Tick the labels that should be groups, or create new ones.
 4. Sort the issues that remain in **Usortert** into groups.
 5. Click **⬇ Eksporter CSV**.
@@ -61,8 +61,8 @@ The file may use semicolon, comma or tab as separator. This is detected automati
 
 ```
 ┌───────────────────────────────────────────────────────────────────────────┐
-│ Toolbar: Last opp CSV · Ny gruppe · Angre · Innstillinger · Kompakte kort │
-│                                       "X usortert av Y" · Eksporter CSV   │
+│ Toolbar: Last opp CSV · Ny gruppe · Angre · Kompakte kort · Tema          │
+│                     "X usortert av Y" · Eksporter CSV · Innstillinger     │
 ├─────────────────┬─┬───────────────────────────────────────────────────────┤
 │ 0 Usortert      │ │ (Target strip – only when groups don't fit)           │
 │ search, filters │↔│ ┌ 1 Group ┐ ┌ 2 Group ┐ ┌ 3 Group ┐                   │

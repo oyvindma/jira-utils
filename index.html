@@ -394,10 +394,29 @@
     box-shadow: 0 6px 24px var(--shadow-color);
   }
 
+  .file-drop-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 30;
+    display: grid;
+    place-items: center;
+    background: var(--color-backdrop);
+  }
+  .file-drop-overlay p {
+    pointer-events: none; /* ellers fyrer dragleave når fila passerer teksten */
+    margin: 0;
+    padding: 32px 48px;
+    background: var(--color-surface);
+    border: 3px dashed var(--color-accent);
+    border-radius: 12px;
+    font-size: 18px;
+    font-weight: 600;
+  }
+
   /* ---------- Innstillinger ---------- */
   .settings-panel {
     position: fixed;
-    top: 0;
+    top: var(--toolbar-height, 0px);
     right: 0;
     bottom: 0;
     z-index: 20;
@@ -482,12 +501,12 @@
   <input id="csv-file-input" type="file" accept=".csv,text/csv" hidden>
   <button id="new-group-button" type="button">+ Ny gruppe</button>
   <button id="undo-button" type="button" title="Angre siste endring (Ctrl+Z)" disabled>↶ Angre</button>
-  <button id="settings-button" type="button" data-opens-panel>⚙ Innstillinger</button>
   <label class="toggle"><input id="compact-toggle" type="checkbox"> Kompakte kort</label>
   <button id="theme-button" type="button" title="Bytt mellom systemets tema, lyst og mørkt"></button>
   <span class="toolbar__spacer"></span>
   <span id="sorting-status" class="toolbar__status"></span>
   <button id="export-button" class="is-primary" type="button">⬇ Eksporter CSV</button>
+  <button id="settings-button" type="button" data-opens-panel>⚙ Innstillinger</button>
 </header>
 
 <main class="workspace">
@@ -524,6 +543,9 @@
 <aside id="settings-panel" class="settings-panel" hidden></aside>
 <div id="selection-bar" class="selection-bar" hidden></div>
 <div id="move-message" class="move-message" role="status" hidden></div>
+<div id="file-drop-overlay" class="file-drop-overlay" hidden>
+  <p>Slipp CSV-filen for å importere</p>
+</div>
 <dialog id="dialog" class="dialog"></dialog>
 
 <script>
@@ -1471,7 +1493,7 @@ class BoardRenderer {
 
   renderContent() {
     if (!this.state.hasIssues()) {
-      return this.renderEmptyMessage('Last opp en CSV-eksport fra Jira for å starte. Filen må inneholde epics og stories/tasks/bugs.');
+      return this.renderEmptyMessage('Last opp en CSV-eksport fra Jira for å starte, eller dra fila inn hit. Filen må inneholde epics og stories/tasks/bugs.');
     }
     if (this.state.getGroups().length === 0) {
       return this.renderEmptyMessage('Ingen grupper ennå. Velg hvilke labels som skal være grupper under ⚙ Innstillinger, eller opprett en ny gruppe.');
@@ -1950,6 +1972,7 @@ class DragDropController {
   }
 
   handleDragOver(event) {
+    if (FileDropImporter.isFileDrag(event)) return;
     const dropZone = event.target.closest?.('[data-drop-group]');
     this.highlightDropZone(dropZone);
     if (!dropZone) return;
@@ -1958,6 +1981,7 @@ class DragDropController {
   }
 
   handleDrop(event) {
+    if (FileDropImporter.isFileDrag(event)) return;
     const dropZone = event.target.closest?.('[data-drop-group]');
     this.highlightDropZone(null);
     if (!dropZone) return;
@@ -2166,6 +2190,55 @@ class PanelResizer {
     const maxWidth = window.innerWidth * PanelResizer.MAX_SHARE_OF_WINDOW;
     return Math.round(Math.min(maxWidth, Math.max(PanelResizer.MIN_WIDTH, width)));
   }
+}
+
+/* ==========================================================================
+   FileDropImporter: slipp en CSV-fil hvor som helst på siden for å importere
+   ========================================================================== */
+
+class FileDropImporter {
+  /** @param onFileDropped (file) => void */
+  constructor(overlayElement, { onFileDropped }) {
+    this.overlayElement = overlayElement;
+    this.onFileDropped = onFileDropped;
+  }
+
+  /** Skiller filer fra kort som dras på tavla. */
+  static isFileDrag(event) {
+    return [...(event.dataTransfer?.types ?? [])].includes('Files');
+  }
+
+  attach() {
+    document.addEventListener('dragenter', event => {
+      if (FileDropImporter.isFileDrag(event) && !document.getElementById('dialog').open) this.showOverlay();
+    });
+    // Overlegget dekker hele siden, så dragleave skjer bare når fila dras ut av vinduet.
+    this.overlayElement.addEventListener('dragover', event => {
+      event.preventDefault();
+      event.dataTransfer.dropEffect = 'copy';
+    });
+    this.overlayElement.addEventListener('dragleave', () => this.hideOverlay());
+    this.overlayElement.addEventListener('drop', event => this.handleDrop(event));
+  }
+
+  handleDrop(event) {
+    event.preventDefault();
+    this.hideOverlay();
+    const files = [...event.dataTransfer.files];
+    const csvFile = files.find(file => this.isCsvFile(file));
+    if (csvFile) {
+      this.onFileDropped(csvFile);
+    } else if (files.length > 0) {
+      Dialog.inform('Ikke en CSV-fil', [`«${files[0].name}» kan ikke importeres. Slipp en CSV-eksport fra Jira.`]);
+    }
+  }
+
+  isCsvFile(file) {
+    return file.name.toLowerCase().endsWith('.csv') || file.type === 'text/csv';
+  }
+
+  showOverlay() { this.overlayElement.hidden = false; }
+  hideOverlay() { this.overlayElement.hidden = true; }
 }
 
 /* ==========================================================================
@@ -2481,6 +2554,9 @@ class App {
     this.panelResizer = new PanelResizer(document.getElementById('panel-resizer'), this.workspaceElement,
       width => this.state.updateSettings({ unsortedPanelWidth: width }));
     this.importWorkflow = new ImportWorkflow(this.state, { onImported: importMode => this.handleImported(importMode) });
+    this.fileDropImporter = new FileDropImporter(document.getElementById('file-drop-overlay'), {
+      onFileDropped: file => this.importWorkflow.importFile(file),
+    });
   }
 
   start() {
@@ -2496,6 +2572,7 @@ class App {
     this.bindBoardActions();
     this.bindCardSelection();
     this.bindOutsideClickClosing();
+    this.fileDropImporter.attach();
     new ResizeObserver(() => this.boardRenderer.applyGridLayout()).observe(this.boardElement);
 
     this.renderAll();
@@ -2543,11 +2620,20 @@ class App {
     });
     document.getElementById('undo-button').addEventListener('click', () => this.undo());
     document.getElementById('settings-button').addEventListener('click', () => this.settingsPanel.toggle());
+    this.trackToolbarHeight();
     document.getElementById('compact-toggle').addEventListener('change', event =>
       this.state.updateSettings({ compactCards: event.target.checked }));
     document.getElementById('export-button').addEventListener('click', () => this.exportCsv());
     document.getElementById('theme-button').addEventListener('click', () =>
       this.state.updateSettings({ theme: ThemeController.nextAfter(this.state.getSettings().theme) }));
+  }
+
+  /** Innstillingspanelet starter under menylinjen, så knappen som åpner og lukker det forblir synlig. */
+  trackToolbarHeight() {
+    const toolbar = document.querySelector('.toolbar');
+    const updateHeight = () => document.documentElement.style.setProperty('--toolbar-height', `${toolbar.offsetHeight}px`);
+    new ResizeObserver(updateHeight).observe(toolbar);
+    updateHeight();
   }
 
   bindBoardActions() {

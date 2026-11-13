@@ -21,6 +21,7 @@ Requirements are numbered by area. Each requirement states what the system shall
 | ID | Requirement |
 |---|---|
 | FR-2.1 | The user shall be able to upload one CSV file exported from Jira, containing both epics and stories/tasks/bugs. |
+| FR-2.1a | The user shall also be able to import by dragging a CSV file from the file explorer and dropping it anywhere on the page. While a file is dragged over the page, an overlay shall say where to drop it. A file whose name does not end in `.csv` (and is not `text/csv`) shall be rejected with a message. Dragging cards on the board shall not show the overlay. |
 | FR-2.2 | The separator (semicolon, comma or tab) shall be detected automatically. Quoted fields and a UTF-8 byte order mark shall be handled. |
 | FR-2.3 | Columns shall be found by name. Required: `Issue Type`, `Issue key`, `Summary`. Optional: `Issue id`, `Parent id`, `Created`, `Custom field (Epic Link)`, `Labels`, `Status`, `Custom field (Story Points …)`. |
 | FR-2.4 | Repeated `Labels` columns shall be merged into one list of labels per issue, without duplicates. |
