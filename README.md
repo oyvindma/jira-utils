@@ -153,6 +153,7 @@ An epic is shown if the epic itself, or one of its children, matches the filter.
 - In **⚙ Innstillinger → Kortvisning** you choose:
   - **Vis øvrige labels på kortene**: show or hide labels on the cards.
   - Which fields are shown: Type, Status, Epic, Story points, Opprettet (created). Key and title are always shown.
+- **Tema** (toolbar) switches between three choices: **System** (follows light/dark mode in your operating system, the default), **Lyst** (light) and **Mørkt** (dark). The choice is saved.
 - A card never shows the label of the group it is in. Its other labels are shown (unless turned off).
 
 ## Undo

@@ -22,11 +22,56 @@
     --color-task: #2f7fd6;
     --color-highlight: #ffb400;
     --color-highlight-background: #fff6dc;
+    --color-on-accent: #ffffff;
+    --color-chip: #eceff4;
+    --color-epic-soft: #f6f2fd;
+    --color-epic-soft-border: #d9cdf3;
+    --color-added-background: #dcf3e4;
+    --color-added-text: #1d6b3a;
+    --color-removed-background: #fde7e5;
+    --color-removed-text: #a3261f;
+    --color-inverse-surface: #1f2430;
+    --color-inverse-text: #ffffff;
+    --color-backdrop: rgba(20, 24, 33, .45);
+    --shadow-color: rgba(0, 0, 0, .18);
+    color-scheme: light;
     --gap: 12px;
     --radius: 6px;
     font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
     font-size: 14px;
     color: var(--color-text);
+  }
+
+  /* Mørkt tema: samme variabler, mørke verdier. Settes av ThemeController. */
+  :root[data-theme="dark"] {
+    --color-background: #14171d;
+    --color-surface: #1e222a;
+    --color-surface-muted: #191c23;
+    --color-group: #252a33;
+    --color-border: #363c48;
+    --color-text: #e4e7ed;
+    --color-muted: #9aa2b1;
+    --color-accent: #3b6fd4;
+    --color-drop-target: #22345a;
+    --color-warning: #f0a43a;
+    --color-epic: #a585f0;
+    --color-story: #4cc27a;
+    --color-bug: #f0706a;
+    --color-task: #5b9cf0;
+    --color-highlight: #ffc23d;
+    --color-highlight-background: #3a3218;
+    --color-chip: #2c313b;
+    --color-epic-soft: #262035;
+    --color-epic-soft-border: #4a3d6b;
+    --color-added-background: #173a26;
+    --color-added-text: #7fdca1;
+    --color-removed-background: #43201e;
+    --color-removed-text: #f4a29c;
+    --color-inverse-surface: #e4e7ed;
+    --color-inverse-text: #14171d;
+    --color-backdrop: rgba(0, 0, 0, .6);
+    --shadow-color: rgba(0, 0, 0, .5);
+    color-scheme: dark;
   }
 
   * { box-sizing: border-box; }
@@ -46,7 +91,7 @@
     padding: 6px 12px;
   }
   button:hover { border-color: var(--color-accent); }
-  button.is-primary { background: var(--color-accent); border-color: var(--color-accent); color: #fff; }
+  button.is-primary { background: var(--color-accent); border-color: var(--color-accent); color: var(--color-on-accent); }
   [hidden] { display: none !important; }
 
   /* ---------- Verktøylinje ---------- */
@@ -131,7 +176,7 @@
   }
   .chip input { display: none; }
   .chip__count { opacity: .7; }
-  .chip:has(input:checked) { background: var(--color-accent); border-color: var(--color-accent); color: #fff; }
+  .chip:has(input:checked) { background: var(--color-accent); border-color: var(--color-accent); color: var(--color-on-accent); }
   .label-filter { position: relative; flex: 1; }
   .label-filter > summary {
     list-style: none;
@@ -154,7 +199,7 @@
     background: var(--color-surface);
     border: 1px solid var(--color-border);
     border-radius: var(--radius);
-    box-shadow: 0 6px 20px rgba(0, 0, 0, .15);
+    box-shadow: 0 6px 20px var(--shadow-color);
   }
   .checkbox-row { display: flex; align-items: center; gap: 6px; padding: 3px 0; cursor: pointer; }
   .checkbox-row__count { margin-left: auto; color: var(--color-muted); font-size: 12px; }
@@ -257,7 +302,7 @@
   .card__fields { display: flex; flex-wrap: wrap; gap: 2px 10px; font-size: 12px; color: var(--color-muted); }
   .card__field { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .card__labels { display: flex; flex-wrap: wrap; gap: 4px; }
-  .label-chip { padding: 1px 8px; border-radius: 10px; background: #eceff4; font-size: 11px; }
+  .label-chip { padding: 1px 8px; border-radius: 10px; background: var(--color-chip); font-size: 11px; }
   .card__children-toggle {
     align-self: flex-start;
     min-height: 28px;
@@ -274,7 +319,7 @@
     gap: 6px;
     margin-top: 2px;
     padding-left: 8px;
-    border-left: 2px dashed #d9cdf3;
+    border-left: 2px dashed var(--color-epic-soft-border);
   }
   /* Kompakt: fargestripen viser typen, tittelen får to linjer */
   .card.is-compact .card__main { flex-direction: row; align-items: baseline; gap: 8px; }
@@ -308,26 +353,26 @@
     width: max-content;
     max-width: calc(100vw - 32px);
     padding: 8px 16px;
-    background: var(--color-text);
-    color: #fff;
+    background: var(--color-inverse-surface);
+    color: var(--color-inverse-text);
     border-radius: 8px;
-    box-shadow: 0 6px 24px rgba(0, 0, 0, .25);
+    box-shadow: 0 6px 24px var(--shadow-color);
   }
   .selection-bar > * { white-space: nowrap; }
-  .selection-bar kbd { background: transparent; color: #fff; border-color: rgba(255, 255, 255, .5); margin-right: 4px; }
+  .selection-bar kbd { background: transparent; color: inherit; border-color: currentColor; opacity: .85; margin-right: 4px; }
   .drag-count {
     position: fixed;
     top: -100px;
     padding: 6px 12px;
     background: var(--color-accent);
-    color: #fff;
+    color: var(--color-on-accent);
     border-radius: var(--radius);
     font-weight: 600;
   }
 
   .card.is-just-moved { animation: just-moved 1.6s ease-out; }
   @keyframes just-moved {
-    from { background: #dcf3e4; box-shadow: 0 0 0 3px var(--color-story); }
+    from { background: var(--color-added-background); box-shadow: 0 0 0 3px var(--color-story); }
     to { background: var(--color-surface); box-shadow: 0 0 0 3px transparent; }
   }
   @media (prefers-reduced-motion: reduce) {
@@ -346,7 +391,7 @@
     border: 1px solid var(--color-border);
     border-left: 4px solid var(--color-story);
     border-radius: 8px;
-    box-shadow: 0 6px 24px rgba(0, 0, 0, .18);
+    box-shadow: 0 6px 24px var(--shadow-color);
   }
 
   /* ---------- Innstillinger ---------- */
@@ -361,7 +406,7 @@
     padding: 16px;
     background: var(--color-surface);
     border-left: 1px solid var(--color-border);
-    box-shadow: -8px 0 24px rgba(0, 0, 0, .12);
+    box-shadow: -8px 0 24px var(--shadow-color);
   }
   .settings-panel__header { display: flex; align-items: center; justify-content: space-between; }
   .settings-panel h2 { margin: 0; font-size: 18px; }
@@ -375,7 +420,9 @@
     padding: 20px;
     border: none;
     border-radius: 10px;
-    box-shadow: 0 12px 40px rgba(0, 0, 0, .25);
+    box-shadow: 0 12px 40px var(--shadow-color);
+    background: var(--color-surface);
+    color: var(--color-text);
   }
   .dialog--wide { width: min(1100px, 95vw); }
   .export-preview__scroll {
@@ -397,7 +444,7 @@
   .change-table td { padding: 6px 10px; border-bottom: 1px solid var(--color-border); vertical-align: top; }
   .change-table th:nth-child(1), .change-table__epic { width: 32%; }
   .change-table th:nth-child(3) { width: 26%; }
-  .change-table__epic { background: #f6f2fd; border-right: 1px solid var(--color-border); }
+  .change-table__epic { background: var(--color-epic-soft); border-right: 1px solid var(--color-border); }
   .change-table__epic > * { position: sticky; top: 40px; } /* epic-navnet følger med når man ruller forbi barna */
   .change-table__issue {
     display: flex;
@@ -409,9 +456,9 @@
   .change-table__key { font-weight: 600; white-space: nowrap; }
   .change-table__no-epic { color: var(--color-muted); font-style: italic; }
   .label-change { display: flex; flex-wrap: wrap; gap: 4px; }
-  .label-chip--removed { background: #fde7e5; color: #a3261f; text-decoration: line-through; }
-  .label-chip--added { background: #dcf3e4; color: #1d6b3a; font-weight: 600; }
-  .dialog::backdrop { background: rgba(20, 24, 33, .45); }
+  .label-chip--removed { background: var(--color-removed-background); color: var(--color-removed-text); text-decoration: line-through; }
+  .label-chip--added { background: var(--color-added-background); color: var(--color-added-text); font-weight: 600; }
+  .dialog::backdrop { background: var(--color-backdrop); }
   .dialog h2 { margin: 0 0 12px; font-size: 18px; }
   .dialog p { margin: 0 0 8px; line-height: 1.5; }
   .dialog__details {
@@ -437,6 +484,7 @@
   <button id="undo-button" type="button" title="Angre siste endring (Ctrl+Z)" disabled>↶ Angre</button>
   <button id="settings-button" type="button" data-opens-panel>⚙ Innstillinger</button>
   <label class="toggle"><input id="compact-toggle" type="checkbox"> Kompakte kort</label>
+  <button id="theme-button" type="button" title="Bytt mellom systemets tema, lyst og mørkt"></button>
   <span class="toolbar__spacer"></span>
   <span id="sorting-status" class="toolbar__status"></span>
   <button id="export-button" class="is-primary" type="button">⬇ Eksporter CSV</button>
@@ -516,6 +564,8 @@ const DEFAULT_SETTINGS = {
   expandedEpicKeys: [],
   /** null = standardbredde */
   unsortedPanelWidth: null,
+  /** 'system' følger operativsystemet */
+  theme: 'system',
 };
 
 function compareIssueKeys(keyA, keyB) {
@@ -2368,6 +2418,40 @@ const SelectionBar = {
 };
 
 /* ==========================================================================
+   ThemeController: lyst eller mørkt tema
+   ========================================================================== */
+
+const ThemeController = {
+  THEME_ORDER: ['system', 'light', 'dark'],
+  BUTTON_TEXT: { system: '◐ Tema: System', light: '☀ Tema: Lyst', dark: '☾ Tema: Mørkt' },
+  systemPrefersDark: window.matchMedia('(prefers-color-scheme: dark)'),
+
+  /** Setter data-theme på <html> til 'light' eller 'dark'. */
+  apply(themeSetting) {
+    document.documentElement.dataset.theme = this.resolve(themeSetting);
+  },
+
+  resolve(themeSetting) {
+    if (themeSetting === 'system') return this.systemPrefersDark.matches ? 'dark' : 'light';
+    return themeSetting;
+  },
+
+  nextAfter(themeSetting) {
+    const position = this.THEME_ORDER.indexOf(themeSetting);
+    return this.THEME_ORDER[(position + 1) % this.THEME_ORDER.length];
+  },
+
+  describe(themeSetting) {
+    return this.BUTTON_TEXT[themeSetting] ?? this.BUTTON_TEXT.system;
+  },
+
+  /** Følger med når operativsystemet bytter tema. */
+  watchSystemTheme(readThemeSetting) {
+    this.systemPrefersDark.addEventListener('change', () => this.apply(readThemeSetting()));
+  },
+};
+
+/* ==========================================================================
    App: kobler modulene sammen
    ========================================================================== */
 
@@ -2400,6 +2484,7 @@ class App {
   }
 
   start() {
+    ThemeController.watchSystemTheme(() => this.state.getSettings().theme);
     this.state.onChange(() => BoardRepository.save(this.state.toSnapshot()));
     this.state.onChange(() => this.renderAll());
     this.selection.onChange(() => this.renderSelection());
@@ -2417,6 +2502,7 @@ class App {
   }
 
   renderAll() {
+    ThemeController.apply(this.state.getSettings().theme);
     PanelResizer.applyWidth(this.workspaceElement, this.state.getSettings().unsortedPanelWidth);
     this.boardRenderer.render();
     this.unsortedPanel.render();
@@ -2433,6 +2519,7 @@ class App {
       : '';
     document.getElementById('compact-toggle').checked = this.state.getSettings().compactCards;
     document.getElementById('undo-button').disabled = !this.state.canUndo();
+    document.getElementById('theme-button').textContent = ThemeController.describe(this.state.getSettings().theme);
   }
 
   renderSelection() {
@@ -2459,6 +2546,8 @@ class App {
     document.getElementById('compact-toggle').addEventListener('change', event =>
       this.state.updateSettings({ compactCards: event.target.checked }));
     document.getElementById('export-button').addEventListener('click', () => this.exportCsv());
+    document.getElementById('theme-button').addEventListener('click', () =>
+      this.state.updateSettings({ theme: ThemeController.nextAfter(this.state.getSettings().theme) }));
   }
 
   bindBoardActions() {

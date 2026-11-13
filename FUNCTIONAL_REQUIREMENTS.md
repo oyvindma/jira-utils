@@ -77,6 +77,8 @@ Requirements are numbered by area. Each requirement states what the system shall
 | FR-6.3 | A card in a group shall not show that group's label. The issue's other labels shall be shown, unless the user turns labels off. |
 | FR-6.4 | A card in a group shall show the labels the issue will have after export (FR-10.4). A card in Usortert shall show its original labels. |
 | FR-6.5 | A compact mode shall show one card per row with key and at most two lines of title, without the type text. |
+| FR-6.6 | The user shall be able to choose a light or dark colour theme, or follow the operating system's setting (default). The choice shall be saved. When following the system, the board shall switch theme when the system does, without reloading. |
+| FR-6.7 | In both themes, text on cards, buttons and label chips shall have a contrast ratio of at least 4.5:1 against its background (WCAG AA). Cards dimmed on purpose while an epic is selected (FR-7.6) are exempt. |
 
 ## 7. Epics and children
 
