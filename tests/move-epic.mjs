@@ -49,6 +49,7 @@ export default async function ({ page, check, eq, open }) {
     page.click('#dialog button:has-text("Last ned CSV")'),
   ]);
   const exportedFile = path.resolve('.tmp/exported-move-epic.csv');
+  check('filename has date and time', /^jira-gruppering-\d{4}-\d{2}-\d{2}-\d{4}\.csv$/.test(download.suggestedFilename()), download.suggestedFilename());
   await download.saveAs(exportedFile);
   const lines = fs.readFileSync(exportedFile, 'utf8').replace(/^﻿/, '').trim().split(/\r?\n/).slice(1);
   const labelsByKey = Object.fromEntries(lines.map(line => { const cells = line.split(';'); return [cells[0], cells.slice(4).filter(Boolean)]; }));

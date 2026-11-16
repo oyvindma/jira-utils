@@ -121,7 +121,7 @@ Requirements are numbered by area. Each requirement states what the system shall
 
 | ID | Requirement |
 |---|---|
-| FR-10.1 | The user shall be able to export the result as a CSV file named `jira-gruppering-YYYY-MM-DD.csv`. |
+| FR-10.1 | The user shall be able to export the result as a CSV file named `jira-gruppering-YYYY-MM-DD-HHmm.csv`, where the timestamp (local time) contains year, month, day, hour and minutes. |
 | FR-10.2 | Only issues that are placed in a group **and whose labels change** (FR-10.4 gives a different set than the original labels) shall be exported, ordered by group order and then by key. |
 | FR-10.3 | The file shall use semicolon as separator, UTF-8 with byte order mark, and the columns `Issue key`, `Issue id`, `Summary`, `Gruppe` and as many `Labels` columns as the issue with most labels needs. |
 | FR-10.4 | *Rule:* exported labels = the issue's original labels, minus every label that is currently a group, plus the label of the group the issue is in. |

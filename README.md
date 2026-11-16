@@ -188,7 +188,7 @@ Click **⬇ Eksporter CSV**. A preview of the changes opens first:
 
 - Issues are grouped under their epic. An epic that is changed itself is listed first in its group. Issues without an epic are listed last under *Uten epic*.
 - The line above the table shows how many issues change and how many epics they belong to.
-- Click **Last ned CSV (N)** to download the file `jira-gruppering-YYYY-MM-DD.csv`, or **Avbryt** to go back.
+- Click **Last ned CSV (N)** to download the file `jira-gruppering-YYYY-MM-DD-HHmm.csv`, or **Avbryt** to go back.
 
 What is exported:
 

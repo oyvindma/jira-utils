@@ -2714,7 +2714,7 @@ const ExportService = {
     const csvText = '﻿' + CsvFormat.stringify(this.buildRows(changes), EXPORT_DELIMITER);
     const blob = new Blob([csvText], { type: 'text/csv;charset=utf-8' });
     const downloadLink = createElement('a', {
-      attributes: { href: URL.createObjectURL(blob), download: `jira-gruppering-${this.todayAsIsoDate()}.csv` },
+      attributes: { href: URL.createObjectURL(blob), download: `jira-gruppering-${this.timestampForFilename()}.csv` },
     });
     document.body.append(downloadLink);
     downloadLink.click();
@@ -2722,8 +2722,11 @@ const ExportService = {
     URL.revokeObjectURL(downloadLink.href);
   },
 
-  todayAsIsoDate() {
-    return new Date().toISOString().slice(0, 10);
+  // Lokal tid på formen YYYY-MM-DD-HHmm
+  timestampForFilename() {
+    const now = new Date();
+    const pad = number => String(number).padStart(2, '0');
+    return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}`;
   },
 };
 
