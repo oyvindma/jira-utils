@@ -1,0 +1,5 @@
+Issue Type;Issue key;Issue id;Summary;Created;Custom field (Epic Link);Labels;Status
+Epic;E-1;1;Epic one;2026-11-01 10:00;;GrpA;Ny
+Story;S-1;2;Story one UPDATED;2026-11-01 10:00;E-1;GrpB;Ny
+Story;S-2;3;Story two UPDATED;2026-11-01 10:00;;GrpB;Ny
+Bug;N-1;5;New in the second file;2026-11-02 10:00;;GrpB;Ny

@@ -262,6 +262,35 @@
     line-height: 1;
   }
   .group__remove:hover { color: var(--color-bug); }
+  .group__expand {
+    margin-left: auto;
+    padding: 0 6px;
+    border: none;
+    background: transparent;
+    color: var(--color-muted);
+    font-size: 16px;
+    line-height: 1;
+  }
+  .group__expand:hover { color: var(--color-accent); }
+  .group__expand + .group__remove { margin-left: 0; }
+  .target-chip.is-current { border-color: var(--color-accent); }
+  /* Utvidet gruppe: fyller hele gruppeflaten, kortene flyter i flere kolonner */
+  .group--expanded .group__body {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    align-content: start;
+    align-items: start;
+    gap: 10px 12px;
+  }
+  .epic-placeholder {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 6px 8px;
+    border: 2px dashed var(--color-epic-soft-border);
+    border-radius: var(--radius);
+  }
+  .epic-placeholder__epic { display: flex; flex-direction: column; gap: 4px; opacity: .6; }
   .group__body {
     flex: 1;
     min-height: 0;
@@ -482,6 +511,7 @@
   .dialog::backdrop { background: var(--color-backdrop); }
   .dialog h2 { margin: 0 0 12px; font-size: 18px; }
   .dialog p { margin: 0 0 8px; line-height: 1.5; }
+  .dialog__details a { color: var(--color-accent); }
   .dialog__details {
     max-height: 320px;
     overflow-y: auto;
@@ -574,7 +604,11 @@ const JiraColumn = {
   LABELS: 'Labels',
   STATUS: 'Status',
 };
-const REQUIRED_JIRA_COLUMNS = [JiraColumn.ISSUE_TYPE, JiraColumn.ISSUE_KEY, JiraColumn.ISSUE_ID, JiraColumn.SUMMARY];
+/** Mangler en av disse, stopper importen. Ellers ville tavla blitt tegnet uten epic-koblinger eller labels uten at brukeren merket det. */
+const REQUIRED_JIRA_COLUMNS = [
+  JiraColumn.ISSUE_TYPE, JiraColumn.ISSUE_KEY, JiraColumn.ISSUE_ID, JiraColumn.SUMMARY,
+  JiraColumn.EPIC_LINK, JiraColumn.LABELS,
+];
 const STORY_POINTS_COLUMN_PREFIX = 'Custom field (Story Points';
 
 const EXPORT_DELIMITER = ';';
@@ -586,6 +620,8 @@ const DEFAULT_SETTINGS = {
   unsortedFilter: { types: [], labels: [], statuses: [], searchText: '' },
   unsortedSortOrder: 'key',
   expandedEpicKeys: [],
+  /** Gruppen som er utvidet til hele gruppeflaten, eller null for vanlig visning. */
+  expandedGroup: null,
   /** null = standardbredde */
   unsortedPanelWidth: null,
   /** 'system' følger operativsystemet */
@@ -819,7 +855,18 @@ const ImportValidator = {
     if (issues.length === 0) {
       return [{ message: `Fant ingen tickets av typene ${IMPORTED_ISSUE_TYPES.join(', ')} i filen.`, details: [] }];
     }
-    return [...this.findDuplicateKeys(issues), ...this.findMissingEpics(issues)];
+    return this.findDuplicateKeys(issues);
+  },
+
+  /** Advarsler stopper ikke importen. Brukeren velger om de skal ignoreres. */
+  findWarnings(issues) {
+    return this.findMissingEpics(issues);
+  },
+
+  /** Tickets som peker på en epic som ikke finnes i filen, importeres uten epic. */
+  withoutMissingEpicLinks(issues) {
+    const epicKeysInFile = new Set(issues.filter(issue => issue.type === EPIC_TYPE).map(issue => issue.key));
+    return issues.map(issue => (issue.epicKey && !epicKeysInFile.has(issue.epicKey) ? { ...issue, epicKey: null } : issue));
   },
 
   findDuplicateKeys(issues) {
@@ -844,12 +891,12 @@ const ImportValidator = {
     }
     if (referencingKeysByMissingEpic.size === 0) return [];
 
-    const details = [...referencingKeysByMissingEpic.keys()]
+    const missingEpics = [...referencingKeysByMissingEpic.keys()]
       .sort(compareIssueKeys)
-      .map(epicKey => `${epicKey}   (brukt av ${referencingKeysByMissingEpic.get(epicKey).sort(compareIssueKeys).join(', ')})`);
+      .map(epicKey => ({ epicKey, referencingKeys: referencingKeysByMissingEpic.get(epicKey).sort(compareIssueKeys) }));
     return [{
-      message: `${referencingKeysByMissingEpic.size} epics er koblet til tickets, men finnes ikke i filen:`,
-      details,
+      message: `${missingEpics.length} epics er koblet til tickets, men finnes ikke i filen. Ticketsene importeres uten epic:`,
+      missingEpics,
     }];
   },
 };
@@ -1026,6 +1073,36 @@ class BoardState {
     return this.settings.expandedEpicKeys.includes(epicKey);
   }
 
+  /** Den utvidede gruppen, eller null hvis ingen er utvidet (eller gruppen ikke finnes lenger). */
+  getExpandedGroup() {
+    const { expandedGroup } = this.settings;
+    return expandedGroup !== null && this.groups.includes(expandedGroup) ? expandedGroup : null;
+  }
+
+  /**
+   * Innholdet i utvidet visning: én blokk per epic (sortert på key) med alle barna i gruppen,
+   * og deretter tickets uten epic. Er epicen i en annen gruppe, er blokken en nedtonet plassholder.
+   */
+  getExpandedGroupContent(group) {
+    const blocksByEpicKey = new Map();
+    const issuesWithoutEpic = [];
+    for (const issue of this.getAllIssues().filter(candidate => this.getPlacement(candidate.key) === group)) {
+      const epicKey = issue.type === EPIC_TYPE ? issue.key : issue.epicKey;
+      const epic = epicKey ? this.getIssue(epicKey) : undefined;
+      if (!epic) {
+        issuesWithoutEpic.push(issue);
+        continue;
+      }
+      if (!blocksByEpicKey.has(epicKey)) {
+        blocksByEpicKey.set(epicKey, { epic, isPlaceholder: this.getPlacement(epicKey) !== group, children: [] });
+      }
+      if (issue.type !== EPIC_TYPE) blocksByEpicKey.get(epicKey).children.push(issue);
+    }
+    const epicBlocks = [...blocksByEpicKey.values()].sort((blockA, blockB) => byIssueKey(blockA.epic, blockB.epic));
+    for (const block of epicBlocks) block.children.sort(byIssueKey);
+    return { epicBlocks, issuesWithoutEpic: issuesWithoutEpic.sort(byIssueKey) };
+  }
+
   canUndo() { return this.undoHistory.canUndo; }
 
   /* ----- Kommandoer ----- */
@@ -1036,7 +1113,7 @@ class BoardState {
     this.placementByIssueKey = {};
     this.manuallyPlacedIssueKeys = new Set();
     this.undoHistory.clear();
-    this.settings = { ...this.settings, expandedEpicKeys: [], unsortedFilter: { ...DEFAULT_SETTINGS.unsortedFilter } };
+    this.settings = { ...this.settings, expandedEpicKeys: [], expandedGroup: null, unsortedFilter: { ...DEFAULT_SETTINGS.unsortedFilter } };
     this.notifyChange();
   }
 
@@ -1084,6 +1161,7 @@ class BoardState {
   removeGroup(label) {
     this.recordUndoPoint();
     this.groups = this.groups.filter(group => group !== label);
+    if (this.settings.expandedGroup === label) this.settings = { ...this.settings, expandedGroup: null };
     for (const [issueKey, placement] of Object.entries(this.placementByIssueKey)) {
       if (placement === label) {
         this.setPlacement(issueKey, UNSORTED);
@@ -1097,6 +1175,10 @@ class BoardState {
   updateSettings(changedSettings) {
     this.settings = { ...this.settings, ...changedSettings };
     this.notifyChange();
+  }
+
+  setExpandedGroup(group) {
+    this.updateSettings({ expandedGroup: group });
   }
 
   toggleEpicExpanded(epicKey) {
@@ -1274,7 +1356,7 @@ const CardDomQueries = {
 
 const Dialog = {
   /**
-   * @param {{ title: string, paragraphs?: string[], details?: string[], content?: Node, isWide?: boolean,
+   * @param {{ title: string, paragraphs?: string[], details?: (string|Node)[], content?: Node, isWide?: boolean,
    *           actions: {label, value, isPrimary?}[] }} options
    * @returns {Promise<string|null>} verdien til valgt knapp, eller null hvis dialogen ble lukket med Escape
    */
@@ -1285,7 +1367,9 @@ const Dialog = {
       createElement('h2', { text: title }),
       ...paragraphs.map(paragraph => createElement('p', { text: paragraph })),
       details.length > 0 && createElement('ol', { className: 'dialog__details' },
-        details.map(detail => createElement('li', { text: detail }))),
+        details.map(detail => (typeof detail === 'string'
+          ? createElement('li', { text: detail })
+          : createElement('li', {}, [detail])))),
       content,
       createElement('div', { className: 'dialog__actions' }, actions.map(action =>
         createElement('button', {
@@ -1337,25 +1421,57 @@ class CardRenderer {
       : this.renderCard(issue, { isNested: false });
   }
 
-  renderEpicCard(epic, childFilter) {
+  /** @param alwaysExpanded barna vises alltid (utvidet gruppevisning), uavhengig av lagret utfolding */
+  renderEpicCard(epic, childFilter, { alwaysExpanded = false } = {}) {
     const card = this.renderCard(epic, { isNested: false });
     const totalChildCount = this.state.getChildrenOfEpic(epic.key).length;
     if (totalChildCount === 0) return card;
 
     const nestedChildren = this.state.getNestedChildren(epic.key);
     const visibleChildren = nestedChildren.filter(childFilter).sort(byIssueKey);
-    const isExpanded = this.state.isEpicExpanded(epic.key);
-
-    card.append(this.renderChildrenToggle(epic.key, isExpanded, {
+    const isExpanded = alwaysExpanded || this.state.isEpicExpanded(epic.key);
+    const counts = {
       nestedCount: nestedChildren.length,
       visibleCount: visibleChildren.length,
       elsewhereCount: totalChildCount - nestedChildren.length,
-    }));
+    };
+
+    card.append(alwaysExpanded
+      ? this.renderChildrenSummary(counts)
+      : this.renderChildrenToggle(epic.key, isExpanded, counts));
     if (isExpanded && visibleChildren.length > 0) {
       card.append(createElement('div', { className: 'card__children' },
         visibleChildren.map(child => this.renderCard(child, { isNested: true }))));
     }
     return card;
+  }
+
+  renderChildrenSummary({ nestedCount, elsewhereCount }) {
+    const textParts = [];
+    if (nestedCount > 0) textParts.push(`${nestedCount} barn`);
+    if (elsewhereCount > 0) textParts.push(`${elsewhereCount} i andre grupper`);
+    return createElement('div', { className: 'card__fields', text: textParts.join(' · ') });
+  }
+
+  /** Epic som ligger i en annen gruppe, nedtonet over barna som ligger i denne gruppen. Kan ikke velges eller flyttes. */
+  renderPlaceholderEpic(epic, children) {
+    const epicPlacement = this.state.getPlacement(epic.key);
+    const epicLocation = epicPlacement === UNSORTED ? 'Usortert' : `«${epicPlacement}»`;
+    return createElement('div', {
+      className: 'epic-placeholder',
+      attributes: { title: `${epic.key}: ${epic.summary}` },
+      dataset: { placeholderEpicKey: epic.key },
+    }, [
+      createElement('div', { className: 'epic-placeholder__epic' }, [
+        createElement('div', { className: 'card__header' }, [
+          createElement('span', { className: 'card__type', text: EPIC_TYPE }),
+          createElement('span', { className: 'card__key', text: epic.key }),
+        ]),
+        createElement('div', { className: 'card__summary', text: epic.summary }),
+        createElement('div', { className: 'card__fields', text: `Epicen ligger i ${epicLocation}` }),
+      ]),
+      createElement('div', { className: 'card__children' }, children.map(child => this.renderCard(child, { isNested: true }))),
+    ]);
   }
 
   renderChildrenToggle(epicKey, isExpanded, { nestedCount, visibleCount, elsewhereCount }) {
@@ -1524,19 +1640,28 @@ class BoardRenderer {
       return this.renderEmptyMessage('Ingen grupper ennå. Velg hvilke labels som skal være grupper under ⚙ Innstillinger, eller opprett en ny gruppe.');
     }
     const fragment = document.createDocumentFragment();
+    const expandedGroup = this.state.getExpandedGroup();
     fragment.append(
       this.renderTargetStrip(),
-      createElement('div', { className: 'group-grid' }, this.state.getGroups().map(group => this.renderGroup(group))),
+      expandedGroup !== null
+        ? this.renderGroup(expandedGroup, { isExpanded: true })
+        : createElement('div', { className: 'group-grid' }, this.state.getGroups().map(group => this.renderGroup(group))),
     );
     return fragment;
   }
 
   /** Kompakte slippmål for alle grupper. Vises bare når gruppene ikke får plass på skjermen. */
   renderTargetStrip() {
+    const expandedGroup = this.state.getExpandedGroup();
     return createElement('nav', { className: 'target-strip', attributes: { 'aria-label': 'Alle grupper' } },
       this.state.getGroups().map((group, index) => createElement('button', {
-        className: 'target-chip',
-        attributes: { type: 'button', title: `Slipp kort her, eller klikk for å gå til «${group}»` },
+        className: ['target-chip', group === expandedGroup && 'is-current'].filter(Boolean).join(' '),
+        attributes: {
+          type: 'button',
+          title: expandedGroup === null
+            ? `Slipp kort her, eller klikk for å gå til «${group}»`
+            : `Slipp kort her, eller klikk for å vise «${group}» utvidet`,
+        },
         dataset: { dropGroup: group, scrollToGroup: group },
       }, [
         index < 9 && createElement('kbd', { className: 'shortcut', text: String(index + 1) }),
@@ -1557,14 +1682,30 @@ class BoardRenderer {
     return createElement('p', { className: 'board__empty', text });
   }
 
-  renderGroup(group) {
-    const cards = this.state.getTopLevelIssuesIn(group)
-      .sort(this.epicsFirstThenByKey)
-      .map(issue => this.cardRenderer.renderTopLevelCard(issue));
+  /** Alle kortene i gruppen: epics med barn, og nedtonede plassholdere for epics som ligger andre steder. */
+  renderExpandedCards(group) {
+    const { epicBlocks, issuesWithoutEpic } = this.state.getExpandedGroupContent(group);
+    return [
+      ...epicBlocks.map(({ epic, isPlaceholder, children }) => isPlaceholder
+        ? this.cardRenderer.renderPlaceholderEpic(epic, children)
+        : this.cardRenderer.renderEpicCard(epic, () => true, { alwaysExpanded: true })),
+      ...issuesWithoutEpic.map(issue => this.cardRenderer.renderTopLevelCard(issue)),
+    ];
+  }
+
+  renderGroup(group, { isExpanded = false } = {}) {
+    const cards = isExpanded
+      ? this.renderExpandedCards(group)
+      : this.state.getTopLevelIssuesIn(group)
+        .sort(this.epicsFirstThenByKey)
+        .map(issue => this.cardRenderer.renderTopLevelCard(issue));
 
     const shortcutNumber = this.state.getGroups().indexOf(group) + 1;
     const issueCount = this.state.countIssuesInGroup(group);
-    const groupElement = createElement('section', { className: 'group', dataset: { dropGroup: group } }, [
+    const groupElement = createElement('section', {
+      className: isExpanded ? 'group group--expanded' : 'group',
+      dataset: { dropGroup: group },
+    }, [
       createElement('header', { className: 'group__header' }, [
         shortcutNumber <= 9 && createElement('kbd', {
           className: 'shortcut',
@@ -1573,6 +1714,16 @@ class BoardRenderer {
         }),
         createElement('span', { className: 'group__name', text: group, attributes: { title: group } }),
         createElement('span', { className: 'group__count', text: `(${issueCount})` }),
+        createElement('button', {
+          className: 'group__expand',
+          text: isExpanded ? '⤡' : '⤢',
+          attributes: {
+            type: 'button',
+            title: isExpanded ? 'Tilbake til vanlig visning (Esc)' : 'Utvid gruppen for å se alle tickets',
+            'aria-label': isExpanded ? 'Tilbake til vanlig visning' : 'Utvid gruppen',
+          },
+          dataset: isExpanded ? { collapseGroup: group } : { expandGroup: group },
+        }),
         createElement('button', {
           className: 'group__remove',
           text: '×',
@@ -1593,10 +1744,22 @@ class BoardRenderer {
     return byIssueKey(issueA, issueB);
   }
 
+  /** Den utvidede gruppen fyller flaten under målstripa. */
+  fitExpandedGroup() {
+    const expandedElement = this.boardElement.querySelector('.group--expanded');
+    if (!expandedElement) return;
+    const stripHeight = this.boardElement.querySelector('.target-strip').offsetHeight;
+    const height = this.boardElement.clientHeight - stripHeight - GroupGridLayout.GAP * 2;
+    expandedElement.style.height = `${Math.max(GroupGridLayout.MIN_GROUP_HEIGHT, height)}px`;
+  }
+
   /** Fordeler gruppene i rader. Kalles også når vinduet endrer størrelse. */
   applyGridLayout() {
     const grid = this.boardElement.querySelector('.group-grid');
-    if (!grid) return;
+    if (!grid) {
+      this.fitExpandedGroup();
+      return;
+    }
     const groupElements = [...grid.querySelectorAll('.group')];
     const padding = GroupGridLayout.GAP * 2;
     const { columnCount, rowHeight, needsScrolling } = GroupGridLayout.calculate(
@@ -2140,7 +2303,7 @@ class MoveFeedback {
 
 class KeyboardShortcuts {
   /**
-   * @param handlers { onUndo, onClearSelection, onMoveSelectionToShortcut(number), onStepSelection(direction), onFocusSearch }
+   * @param handlers { onUndo, onEscape, onMoveSelectionToShortcut(number), onStepSelection(direction), onFocusSearch }
    */
   constructor(handlers) {
     this.handlers = handlers;
@@ -2155,7 +2318,7 @@ class KeyboardShortcuts {
 
     const isUndo = (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z';
     const action = isUndo ? () => this.handlers.onUndo()
-      : event.key === 'Escape' ? () => this.handlers.onClearSelection()
+      : event.key === 'Escape' ? () => this.handlers.onEscape()
       : /^[0-9]$/.test(event.key) && !event.ctrlKey && !event.metaKey && !event.altKey ? () => this.handlers.onMoveSelectionToShortcut(Number(event.key))
       : event.key === 'ArrowDown' ? () => this.handlers.onStepSelection(1)
       : event.key === 'ArrowUp' ? () => this.handlers.onStepSelection(-1)
@@ -2300,9 +2463,13 @@ class ImportWorkflow {
       return;
     }
 
+    const warnings = ImportValidator.findWarnings(mappingResult.issues);
+    if (warnings.length > 0 && !(await this.confirmDespiteWarnings(file.name, warnings))) return;
+    const issues = ImportValidator.withoutMissingEpicLinks(mappingResult.issues);
+
     const importMode = this.state.hasIssues() ? await this.askImportMode() : 'replace';
-    if (importMode === 'merge') this.state.mergeImport(mappingResult.issues);
-    else if (importMode === 'replace') this.state.replaceImport(mappingResult.issues);
+    if (importMode === 'merge') this.state.mergeImport(issues);
+    else if (importMode === 'replace') this.state.replaceImport(issues);
     else return;
 
     this.onImported(importMode);
@@ -2315,6 +2482,35 @@ class ImportWorkflow {
       details: errors.flatMap(error => error.details),
       actions: [{ label: 'Lukk', value: 'close', isPrimary: true }],
     });
+  }
+
+  /** «EPIC-1   (brukt av KEY-2, KEY-3)». Nøklene er lenker til Jira når Jira-adressen er satt i innstillingene. */
+  renderMissingEpic({ epicKey, referencingKeys }) {
+    const jiraBaseUrl = this.state.getSettings().jiraBaseUrl;
+    const renderKey = issueKey => {
+      const issueUrl = buildJiraIssueUrl(jiraBaseUrl, issueKey);
+      if (!issueUrl) return issueKey;
+      return createElement('a', {
+        text: issueKey,
+        attributes: { href: issueUrl, target: '_blank', rel: 'noopener noreferrer', title: `Åpne ${issueKey} i Jira` },
+      });
+    };
+    const referencingParts = referencingKeys.flatMap((issueKey, index) => [index > 0 && ', ', renderKey(issueKey)]);
+    return createElement('span', {}, [renderKey(epicKey), '   (brukt av ', ...referencingParts, ')']);
+  }
+
+  /** @returns {Promise<boolean>} true hvis brukeren vil importere likevel */
+  async confirmDespiteWarnings(fileName, warnings) {
+    const answer = await Dialog.ask({
+      title: 'Importere likevel?',
+      paragraphs: [`Filen «${fileName}» har avvik:`, ...warnings.map(warning => warning.message)],
+      details: warnings.flatMap(warning => warning.missingEpics.map(missing => this.renderMissingEpic(missing))),
+      actions: [
+        { label: 'Avbryt', value: 'cancel' },
+        { label: 'Importer likevel', value: 'import', isPrimary: true },
+      ],
+    });
+    return answer === 'import';
   }
 
   async askImportMode() {
@@ -2588,7 +2784,7 @@ class App {
     this.dragDropController = new DragDropController(this.workspaceElement, this.selection, this.issueMover);
     this.keyboardShortcuts = new KeyboardShortcuts({
       onUndo: () => this.undo(),
-      onClearSelection: () => this.selection.clear(),
+      onEscape: () => this.handleEscape(),
       onMoveSelectionToShortcut: number => this.moveSelectionToShortcut(number),
       onStepSelection: direction => this.stepSelection(direction),
       onFocusSearch: () => document.getElementById('unsorted-search').focus(),
@@ -2686,9 +2882,25 @@ class App {
       const removeButton = event.target.closest('[data-remove-group]');
       if (removeButton) this.confirmAndRemoveGroup(removeButton.dataset.removeGroup);
 
+      const expandButton = event.target.closest('[data-expand-group]');
+      if (expandButton) this.state.setExpandedGroup(expandButton.dataset.expandGroup);
+
+      if (event.target.closest('[data-collapse-group]')) this.state.setExpandedGroup(null);
+
       const targetChip = event.target.closest('[data-scroll-to-group]');
-      if (targetChip) this.boardRenderer.scrollToGroup(targetChip.dataset.scrollToGroup);
+      if (targetChip && this.state.getExpandedGroup() !== null) this.state.setExpandedGroup(targetChip.dataset.scrollToGroup);
+      else if (targetChip) this.boardRenderer.scrollToGroup(targetChip.dataset.scrollToGroup);
     });
+  }
+
+  /** Esc fjerner valget først. Uten valg lukker det utvidet gruppevisning, med mindre en nedtrekksliste eller innstillingene skal lukkes. */
+  handleEscape() {
+    if (!this.selection.isEmpty()) {
+      this.selection.clear();
+      return;
+    }
+    const isOverlayOpen = this.settingsPanel.isOpen || document.querySelector('details.label-filter[open]') !== null;
+    if (!isOverlayOpen && this.state.getExpandedGroup() !== null) this.state.setExpandedGroup(null);
   }
 
   /** Åpne nedtrekkslister og innstillingspanelet lukkes ved klikk utenfor eller Escape. */

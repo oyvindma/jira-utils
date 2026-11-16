@@ -1,0 +1,8 @@
+Issue Type;Issue key;Issue id;Parent id;Summary;Created;Custom field (Epic Link);Labels;Labels;Status
+Epic;T-1;1;;Epic one;2026-11-01 10:00;;GrpA;;Ny
+Story;T-2;2;;Child in same group nested;2026-11-01 10:00;T-1;GrpA;;Ny
+Story;T-3;3;;Child in other group;2026-11-01 10:00;T-1;GrpB;;Ny
+Task;T-4;4;;Child in Usortert (conflict);2026-11-01 10:00;T-1;GrpA;GrpB;Ny
+Bug;T-5;5;;Child of nothing unrelated;2026-11-01 10:00;;GrpB;;Ny
+Epic;T-6;6;;Other epic;2026-11-01 10:00;;GrpB;;Ny
+Story;T-7;7;;Child of other epic;2026-11-01 10:00;T-6;GrpB;;Ny

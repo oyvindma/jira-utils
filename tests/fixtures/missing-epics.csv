@@ -1,0 +1,6 @@
+Issue Type;Issue key;Issue id;Summary;Created;Custom field (Epic Link);Labels;Status
+Epic;T-1;1;Epic in file;2026-11-01 10:00;;GrpA;Ny
+Story;T-2;2;Child of epic in file;2026-11-01 10:00;T-1;GrpA;Ny
+Story;T-3;3;Child of closed epic;2026-11-01 10:00;X-99;GrpA;Ny
+Task;T-4;4;Another child of closed epic;2026-11-01 10:00;X-99;;Ny
+Bug;T-5;5;Child of other missing epic;2026-11-01 10:00;Y-7;;Ny

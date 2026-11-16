@@ -23,12 +23,13 @@ Requirements are numbered by area. Each requirement states what the system shall
 | FR-2.1 | The user shall be able to upload one CSV file exported from Jira, containing both epics and stories/tasks/bugs. |
 | FR-2.1a | The user shall also be able to import by dragging a CSV file from the file explorer and dropping it anywhere on the page. While a file is dragged over the page, an overlay shall say where to drop it. A file whose name does not end in `.csv` (and is not `text/csv`) shall be rejected with a message. Dragging cards on the board shall not show the overlay. |
 | FR-2.2 | The separator (semicolon, comma or tab) shall be detected automatically. Quoted fields and a UTF-8 byte order mark shall be handled. |
-| FR-2.3 | Columns shall be found by name. Required: `Issue Type`, `Issue key`, `Issue id`, `Summary`. Optional: `Parent id`, `Created`, `Custom field (Epic Link)`, `Labels`, `Status`, `Custom field (Story Points …)`. |
+| FR-2.3 | Columns shall be found by name. Required: `Issue Type`, `Issue key`, `Issue id`, `Summary`, `Custom field (Epic Link)`, `Labels`. Optional: `Parent id`, `Created`, `Status`, `Custom field (Story Points …)`. |
 | FR-2.4 | Repeated `Labels` columns shall be merged into one list of labels per issue, without duplicates. |
 | FR-2.5 | Only the issue types Epic, Story, Task and Bug shall be imported. All other types (e.g. Sub-task, Xray Test, Test Execution) shall be ignored. |
 | FR-2.6 | An issue's epic shall be taken from `Epic Link`. If empty, it shall be taken from `Parent id` when that id belongs to an epic in the file. |
-| FR-2.7 | The import shall fail, and leave the board unchanged, if: required columns are missing; no issues of the imported types are found; an issue key occurs more than once; or an issue refers to an epic that is not in the file. |
-| FR-2.8 | When the import fails because of missing epics, the error message shall list every missing epic key and the issue keys that refer to it. |
+| FR-2.7 | The import shall fail, and leave the board unchanged, if: required columns are missing (the message lists them by name); no issues of the imported types are found; or an issue key occurs more than once. |
+| FR-2.8 | If an issue refers to an epic that is not in the file, this shall be a warning, not an error. A dialog shall list every missing epic key and the issue keys that refer to it, and let the user cancel (the board is unchanged) or import anyway. When importing anyway, the affected issues shall be imported without an epic. |
+| FR-2.8a | When a Jira address is set in the settings, every issue key in the warning dialog (the missing epics and the issues that refer to them) shall be a link to that issue in Jira, opening in a new tab. Without a Jira address the keys shall be plain text. |
 | FR-2.9 | When the board already contains data, the user shall choose between **merge**, **replace** and **cancel** for each import. |
 | FR-2.10 | *Merge:* issue data shall be updated; issues the user has placed manually shall keep their placement; all other issues (including new ones) shall be placed by their labels (FR-4). |
 | FR-2.11 | *Replace:* all issues, groups, placements and undo history shall be cleared and rebuilt from the file. Usortert filters and folded-out epics shall be reset; other display settings shall be kept. |
@@ -79,7 +80,7 @@ Requirements are numbered by area. Each requirement states what the system shall
 | FR-6.4 | A card in a group shall show the labels the issue will have after export (FR-10.4). A card in Usortert shall show its original labels. |
 | FR-6.5 | A compact mode shall show one card per row with key and at most two lines of title, without the type text. |
 | FR-6.6 | The user shall be able to choose a light or dark colour theme, or follow the operating system's setting (default). The choice shall be saved. When following the system, the board shall switch theme when the system does, without reloading. |
-| FR-6.7 | In both themes, text on cards, buttons and label chips shall have a contrast ratio of at least 4.5:1 against its background (WCAG AA). Cards dimmed on purpose while an epic is selected (FR-7.6) are exempt. |
+| FR-6.7 | In both themes, text on cards, buttons and label chips shall have a contrast ratio of at least 4.5:1 against its background (WCAG AA). Cards dimmed on purpose while an epic is selected (FR-7.6), and dimmed placeholder epics (FR-12.4), are exempt. |
 
 ## 7. Epics and children
 
@@ -145,7 +146,7 @@ Requirements are numbered by area. Each requirement states what the system shall
 
 | ID | Requirement |
 |---|---|
-| FR-12.1 | The user shall be able to expand a group so it fills the whole group area on the right side of the board, to get an overview of all its issues. Usortert shall stay visible on the left. The user shall be able to collapse the group again, with a button in its header or with Esc, and the normal layout (FR-5.2) shall return. |
+| FR-12.1 | The user shall be able to expand a group so it fills the whole group area on the right side of the board, to get an overview of all its issues. Usortert shall stay visible on the left. The user shall be able to collapse the group again, with a button in its header or with Esc (when nothing is selected, see FR-8.1), and the normal layout (FR-5.2) shall return. |
 | FR-12.2 | Only one group shall be expanded at a time. While a group is expanded, the other groups shall be hidden, but the target strip (FR-5.4) shall remain available as drop targets. Expanding another group from the strip shall replace the current one. |
 | FR-12.3 | In the expanded view, an epic and its children that are in the same group shall be shown together, with the children grouped under the epic and all folded out, regardless of the fold state in the normal view (FR-7.1). The fold state saved for the normal view shall not change. |
 | FR-12.4 | If a child is in the group but its epic is in another group or in Usortert, the epic shall be shown above the child as a dimmed placeholder, so the child is still seen under its epic. The placeholder shall be visibly different from an epic that is in the group, for example by a dashed border and a note naming where the epic is. |

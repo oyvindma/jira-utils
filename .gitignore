@@ -1,3 +1,5 @@
 *.csv
-.fetch-issues.sh
+!tests/fixtures/*.csv
+fetch-issues.sh
 .tmp/
+.idea/

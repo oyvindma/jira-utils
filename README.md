@@ -17,13 +17,14 @@ Everything runs in the browser from a single file, `index.html`. There is no ser
 5. [How issues are placed automatically](#how-issues-are-placed-automatically)
 6. [Sorting issues](#sorting-issues)
 7. [Epics and their children](#epics-and-their-children)
-8. [Finding issues in Usortert](#finding-issues-in-usortert)
-9. [Card display](#card-display)
-10. [Undo](#undo)
-11. [Exporting the result](#exporting-the-result)
-12. [Importing again](#importing-again)
-13. [Keyboard shortcuts](#keyboard-shortcuts)
-14. [Troubleshooting](#troubleshooting)
+8. [Expanded group view](#expanded-group-view)
+9. [Finding issues in Usortert](#finding-issues-in-usortert)
+10. [Card display](#card-display)
+11. [Undo](#undo)
+12. [Exporting the result](#exporting-the-result)
+13. [Importing again](#importing-again)
+14. [Keyboard shortcuts](#keyboard-shortcuts)
+15. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -41,7 +42,7 @@ Your work is saved after every change. You can close the browser and continue la
 
 Export the issues from Jira as CSV (all fields or your current fields). Epics and stories/tasks/bugs must be in **the same file**.
 
-The board reads these columns. Only `Issue Type`, `Issue key`, `Issue id` and `Summary` are required:
+The board reads these columns. `Issue Type`, `Issue key`, `Issue id`, `Summary`, `Custom field (Epic Link)` and `Labels` are required, under exactly these names. The import stops with a list of the missing columns if one of them is absent:
 
 | Column | Used for |
 |---|---|
@@ -50,13 +51,15 @@ The board reads these columns. Only `Issue Type`, `Issue key`, `Issue id` and `S
 | `Issue id` | The issue's numeric id. Also used to find the epic (together with `Parent id`) when `Epic Link` is empty. |
 | `Summary` | Title shown on the card. |
 | `Custom field (Epic Link)` | Which epic the issue belongs to. |
-| `Parent id` | Used to find the epic when `Epic Link` is empty. |
+| `Parent id` | Optional. Used to find the epic when `Epic Link` is empty. |
 | `Labels` (may repeat) | All labels on the issue. |
 | `Status`, `Created`, `Custom field (Story Points …)` | Optional information on the cards. |
 
 The file may use semicolon, comma or tab as separator. This is detected automatically.
 
-**The import stops** if the file refers to an epic that is not in the file itself. The message lists the missing epic keys and which issues refer to them. Add the epics to the export, or remove the epic link from those issues, and import again. The board is not changed by a failed import.
+**You get a warning** if the file refers to an epic that is not in the file itself (for example because the epic is closed and was left out of the export). The dialog lists the missing epic keys and which issues refer to them. If you have entered your Jira address under **⚙ Innstillinger**, every issue key in the dialog is a link to the issue in Jira. Choose **Importer likevel** to import those issues without an epic, or **Avbryt** to leave the board unchanged and add the epics to the export first.
+
+**The import stops** if required columns are missing or an issue key occurs more than once. The board is not changed by a failed import.
 
 ## The screen
 
@@ -135,6 +138,16 @@ After each move, the moved card flashes and is scrolled into view in its group, 
 - A child can be dragged **out of** a folded-out epic into another group. There it is shown as its own card, and the epic shows *"N i andre grupper"*.
 - **Click an epic** to highlight all its children wherever they are, including in other groups and in Usortert. Everything else is dimmed. Press **Esc** or click an empty area to clear.
 
+## Expanded group view
+
+To get an overview of everything in one group, click **⤢** in the group's header. The group then fills the whole area to the right of Usortert, with the cards in several columns. The other groups are hidden, but the strip at the top still lists them: drop cards on a group there, or click it to show that group expanded instead.
+
+- Every epic is shown with all its children in the group folded out, whatever the fold state is in the normal view.
+- If a child is in the group but its epic is in another group or in Usortert, the epic is shown **dimmed with a dashed border** above the child, with a note saying where the epic is. The dimmed epic is only a pointer: it cannot be selected, moved or exported, and it does not count in the group's number.
+- Issues without an epic are listed after the epics.
+- Selecting, moving (mouse or keys 1–9) and undo work as usual.
+- Click **⤡** or press **Esc** (with nothing selected) to go back. The expanded group is remembered when you reopen the page.
+
 ## Finding issues in Usortert
 
 - **Search** (or press **/**) matches issue key and title.
@@ -204,7 +217,7 @@ Shortcuts work when the cursor is not in a text field.
 | **↑ / ↓** | Select previous / next card |
 | **Ctrl+click** (⌘+click) | Add or remove card from selection |
 | **Shift+click** | Select a range of cards |
-| **Esc** | Clear selection |
+| **Esc** | Clear selection; with nothing selected, close the expanded group view |
 | **Ctrl+Z** (⌘+Z) | Undo |
 | **/** | Go to search |
 | **← / →** on the divider | Make Usortert narrower / wider |

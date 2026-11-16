@@ -1,0 +1,7 @@
+Issue Type;Issue key;Issue id;Parent id;Summary;Created;Custom field (Epic Link);Labels;Labels;Status
+Epic;E-1;1;;Epic to move;2026-11-01 10:00;;;;Ny
+Story;C-1;2;;Child one unsorted;2026-11-01 10:00;E-1;;;Ny
+Task;C-2;3;;Child two unsorted;2026-11-01 10:00;E-1;Old;;Ny
+Story;C-3;4;;Child already in Other;2026-11-01 10:00;E-1;Other;;Ny
+Story;U-1;5;;Unrelated unsorted;2026-11-01 10:00;;;;Ny
+Epic;E-9;9;;Anchor epic for Other;2026-11-01 10:00;;Other;;Ny

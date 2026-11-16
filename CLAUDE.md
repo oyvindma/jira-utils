@@ -8,7 +8,16 @@ Jira-sorterer: a browser board for grouping Jira issues by label. The user loads
 
 ## Commands
 
-There is no build, package manager, linter or test suite. The whole app is the single file `index.html` (HTML + CSS + vanilla JS, no external libraries, no server). Open it in a browser to run it; to verify changes, load a CSV (e.g. `Jira-oppgaver.csv`) in a headless browser or by hand.
+There is no build, package manager or linter. The whole app is the single file `index.html` (HTML + CSS + vanilla JS, no external libraries, no server). Open it in a browser to run it.
+
+Frontend tests are Playwright scenarios in `tests/*.mjs`, run in headless Chromium through the `verify-webpage` skill (`~/.claude/skills/verify-webpage`, override with `VERIFY_WEBPAGE_DIR`; needs Node 18+):
+
+```
+tests/run.sh                 # all scenarios (plus a smoke run), output in .tmp/verify-out
+tests/run.sh import-modes    # a single scenario, name without .mjs
+```
+
+Scenarios import `tests/helpers.mjs` and use small made-up CSVs in `tests/fixtures/`. Never put real Jira exports in `tests/` (they are client data). Add or update a scenario, and the matching FR in `FUNCTIONAL_REQUIREMENTS.md`, when behaviour changes.
 
 `fetch-issues.sh` (needs `jq`, a Jira PAT via prompt/`PAT` env var) downloads open issues from the Jira instance into `<timestamp>-gtsanalyseissues.csv`. `*.csv` and `.tmp/` are git-ignored.
 
