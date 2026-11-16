@@ -1,0 +1,5 @@
+Issue Type;Issue key;Issue id;Summary;Created;Custom field (Epic Link);Labels;Status;Description
+Epic;E-1;1;Epic with description;2026-11-01 10:00;;GrpA;Ny;"Epic description"
+Story;S-1;2;Story with multiline description;2026-11-01 10:00;E-1;GrpA;Ny;"First line
+Second line with ; semicolon and <b>tags</b>"
+Task;T-1;3;Task without description;2026-11-01 10:00;;;Ny;

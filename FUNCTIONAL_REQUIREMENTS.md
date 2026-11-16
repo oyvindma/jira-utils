@@ -23,7 +23,7 @@ Requirements are numbered by area. Each requirement states what the system shall
 | FR-2.1 | The user shall be able to upload one CSV file exported from Jira, containing both epics and stories/tasks/bugs. |
 | FR-2.1a | The user shall also be able to import by dragging a CSV file from the file explorer and dropping it anywhere on the page. While a file is dragged over the page, an overlay shall say where to drop it. A file whose name does not end in `.csv` (and is not `text/csv`) shall be rejected with a message. Dragging cards on the board shall not show the overlay. |
 | FR-2.2 | The separator (semicolon, comma or tab) shall be detected automatically. Quoted fields and a UTF-8 byte order mark shall be handled. |
-| FR-2.3 | Columns shall be found by name. Required: `Issue Type`, `Issue key`, `Issue id`, `Summary`, `Custom field (Epic Link)`, `Labels`. Optional: `Parent id`, `Created`, `Status`, `Custom field (Story Points …)`. |
+| FR-2.3 | Columns shall be found by name. Required: `Issue Type`, `Issue key`, `Issue id`, `Summary`, `Custom field (Epic Link)`, `Labels`. Optional: `Parent id`, `Created`, `Status`, `Description`, `Custom field (Story Points …)`. |
 | FR-2.4 | Repeated `Labels` columns shall be merged into one list of labels per issue, without duplicates. |
 | FR-2.5 | Only the issue types Epic, Story, Task and Bug shall be imported. All other types (e.g. Sub-task, Xray Test, Test Execution) shall be ignored. |
 | FR-2.6 | An issue's epic shall be taken from `Epic Link`. If empty, it shall be taken from `Parent id` when that id belongs to an epic in the file. |
@@ -52,7 +52,7 @@ Requirements are numbered by area. Each requirement states what the system shall
 |---|---|
 | FR-4.1 | An issue with exactly one group label shall be placed in that group. |
 | FR-4.2 | An issue with more than one group label shall be placed in Usortert and marked with a warning (⚠). Hovering over the warning shall show the conflicting groups. |
-| FR-4.3 | An issue with no group label shall be placed in the same group its epic is placed in by labels, or in Usortert if it has no epic. |
+| FR-4.3 | An issue with no group label shall be placed in Usortert, also when its epic is in a group. A child shall never get its epic's group, and thus its label in the export (FR-10.4), unless the user moves it there. |
 | FR-4.4 | Placement shall be recalculated for all automatically placed issues when a group is added or removed, so that the result does not depend on the order groups were chosen in. |
 | FR-4.5 | An issue the user has moved shall never be moved automatically. *Exception:* when its group is removed, it goes to Usortert and becomes automatically placed again. |
 
@@ -92,6 +92,8 @@ Requirements are numbered by area. Each requirement states what the system shall
 | FR-7.4 | If the epic has children in other groups or in Usortert, the user shall be asked to gather them all, leave them, or cancel the move. |
 | FR-7.5 | A child shall be movable out of a folded-out epic to another group, where it is shown as its own card. |
 | FR-7.6 | Selecting an epic shall highlight all its children wherever they are, and dim all other cards. |
+| FR-7.7 | A story, task or bug that is not in the same group as its epic (including Usortert) shall show an epic badge with the epic key, in normal and compact mode. Hovering shall tell where the epic is. Issues in the same group as their epic, epics, and issues without an epic shall have no badge. |
+| FR-7.8 | Clicking the epic badge shall select the epic (and only the epic), so that it and all its children are highlighted as in FR-7.6, and scroll the epic into view. |
 
 ## 8. Selection and moving
 
@@ -165,3 +167,12 @@ Requirements are numbered by area. Each requirement states what the system shall
 - An issue in more than one group at the same time.
 - Sub-tasks and test issue types.
 - Layout for phones and tablets.
+
+## 13. Description
+
+| ID | Requirement |
+|---|---|
+| FR-13.1 | The description of an issue shall be imported from the optional `Description` column. `fetch-issues.sh` shall fetch the description and write it to that column. An issue without a description is allowed. |
+| FR-13.2 | Every card (in the normal view, the expanded group view and the nested view, also in compact mode) shall have a small notebook icon (📓) with the tooltip «Vis beskrivelse». Clicking it shall not select, drag or move the card. |
+| FR-13.3 | Clicking the icon shall open a modal with the issue key, the summary and the description as plain text, keeping line breaks and showing long text with a scrollbar. An issue without a description shall show «Ingen beskrivelse». |
+| FR-13.4 | The modal shall close when the user presses **Lukk**, presses Esc, or clicks outside it. Clicking inside the modal shall not close it. |

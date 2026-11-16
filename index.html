@@ -328,6 +328,12 @@
   .card__key { font-weight: 600; white-space: nowrap; }
   .card__key--link { color: inherit; text-decoration: none; }
   .card__key--link:hover, .card__key--link:focus-visible { text-decoration: underline; }
+  .card__epic-badge { padding: 0 6px; border: 1px solid var(--color-epic); border-radius: 10px; background: var(--color-chip); color: inherit; font: inherit; font-size: 11px; white-space: nowrap; cursor: pointer; }
+  .card__epic-badge:hover, .card__epic-badge:focus-visible { background: var(--color-highlight-background); }
+  .card__description-button { margin-left: auto; padding: 0 2px; border: none; background: none; font-size: 13px; line-height: 1; cursor: pointer; opacity: .75; }
+  .card__description-button:hover, .card__description-button:focus-visible { opacity: 1; }
+  .dialog__description { max-height: 60vh; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.5; }
+  .dialog__description.is-empty { color: var(--color-muted); font-style: italic; }
   .card__warning-icon { color: var(--color-warning); }
   .card__summary { line-height: 1.3; overflow-wrap: anywhere; }
   .card__fields { display: flex; flex-wrap: wrap; gap: 2px 10px; font-size: 12px; color: var(--color-muted); }
@@ -603,6 +609,7 @@ const JiraColumn = {
   EPIC_LINK: 'Custom field (Epic Link)',
   LABELS: 'Labels',
   STATUS: 'Status',
+  DESCRIPTION: 'Description',
 };
 /** Mangler en av disse, stopper importen. Ellers ville tavla blitt tegnet uten epic-koblinger eller labels uten at brukeren merket det. */
 const REQUIRED_JIRA_COLUMNS = [
@@ -760,7 +767,7 @@ const CsvFormat = {
 
 /* ==========================================================================
    JiraIssueMapper: CSV-rader fra Jira -> Issue-objekter
-   Issue = { key, type, summary, status, created, storyPoints, epicKey, labels[] }
+   Issue = { key, type, summary, status, created, description, storyPoints, epicKey, labels[] }
    ========================================================================== */
 
 const JiraIssueMapper = {
@@ -807,6 +814,7 @@ const JiraIssueMapper = {
       epicLink: readFirstValue(JiraColumn.EPIC_LINK),
       labels: [...new Set(readAllValues(JiraColumn.LABELS))],
       status: readFirstValue(JiraColumn.STATUS),
+      description: readFirstValue(JiraColumn.DESCRIPTION),
       storyPoints: storyPointsColumn ? readFirstValue(storyPointsColumn) : '',
     };
   },
@@ -835,6 +843,7 @@ const JiraIssueMapper = {
       summary: jiraRow.summary,
       status: jiraRow.status,
       created: jiraRow.created,
+      description: jiraRow.description,
       storyPoints: this.formatStoryPoints(jiraRow.storyPoints),
       epicKey: this.resolveEpicKey(jiraRow, epicKeyByIssueId),
       labels: jiraRow.labels,
@@ -941,16 +950,12 @@ const GroupLabelRules = {
 const InitialPlacementResolver = {
   /**
    * Én grupperingslabel: i den gruppen.
-   * Flere: usortert, siden brukeren må avgjøre.
-   * Ingen: følger epicen sin, ellers usortert.
+   * Flere eller ingen: usortert. Ved flere må brukeren avgjøre, og uten label arver ikke
+   * ticketen epicens gruppe (da ville eksporten gitt den epicens label).
    */
-  resolvePlacement(issue, issuesByKey, groups) {
+  resolvePlacement(issue, groups) {
     const groupLabels = GroupLabelRules.findGroupLabelsOnIssue(issue, groups);
-    if (groupLabels.length === 1) return groupLabels[0];
-    if (groupLabels.length > 1) return UNSORTED;
-
-    const epic = issue.epicKey ? issuesByKey[issue.epicKey] : undefined;
-    return epic ? this.resolvePlacement(epic, issuesByKey, groups) : UNSORTED;
+    return groupLabels.length === 1 ? groupLabels[0] : UNSORTED;
   },
 };
 
@@ -1219,7 +1224,7 @@ class BoardState {
   placeAutomaticIssuesByLabels() {
     for (const issue of this.getAllIssues()) {
       if (this.manuallyPlacedIssueKeys.has(issue.key)) continue;
-      const placement = InitialPlacementResolver.resolvePlacement(issue, this.issuesByKey, this.groups);
+      const placement = InitialPlacementResolver.resolvePlacement(issue, this.groups);
       this.setPlacement(issue.key, placement);
     }
   }
@@ -1357,10 +1362,10 @@ const CardDomQueries = {
 const Dialog = {
   /**
    * @param {{ title: string, paragraphs?: string[], details?: (string|Node)[], content?: Node, isWide?: boolean,
-   *           actions: {label, value, isPrimary?}[] }} options
+   *           closeOnOutsideClick?: boolean, actions: {label, value, isPrimary?}[] }} options
    * @returns {Promise<string|null>} verdien til valgt knapp, eller null hvis dialogen ble lukket med Escape
    */
-  ask({ title, paragraphs = [], details = [], content = null, isWide = false, actions }) {
+  ask({ title, paragraphs = [], details = [], content = null, isWide = false, closeOnOutsideClick = false, actions }) {
     const dialogElement = document.getElementById('dialog');
     dialogElement.classList.toggle('dialog--wide', isWide);
     const form = createElement('form', { attributes: { method: 'dialog' } }, [
@@ -1382,8 +1387,34 @@ const Dialog = {
     dialogElement.returnValue = '';
 
     return new Promise(resolve => {
-      dialogElement.addEventListener('close', () => resolve(dialogElement.returnValue || null), { once: true });
+      const listeners = new AbortController();
+      dialogElement.addEventListener('close', () => {
+        listeners.abort();
+        resolve(dialogElement.returnValue || null);
+      }, { once: true });
+      if (closeOnOutsideClick) {
+        dialogElement.addEventListener('click', event => {
+          const box = dialogElement.getBoundingClientRect();
+          const isInside = event.clientX >= box.left && event.clientX <= box.right
+            && event.clientY >= box.top && event.clientY <= box.bottom;
+          if (!isInside) dialogElement.close();
+        }, { signal: listeners.signal });
+      }
       dialogElement.showModal();
+    });
+  },
+
+  /** Beskrivelsen til en ticket. Lukkes med Lukk, Esc eller klikk utenfor. */
+  showDescription(issue) {
+    return this.ask({
+      title: `${issue.key} ${issue.summary}`,
+      content: createElement('div', {
+        className: ['dialog__description', !issue.description && 'is-empty'].filter(Boolean).join(' '),
+        text: issue.description || 'Ingen beskrivelse',
+      }),
+      isWide: true,
+      closeOnOutsideClick: true,
+      actions: [{ label: 'Lukk', value: 'close', isPrimary: true }],
     });
   },
 
@@ -1499,7 +1530,7 @@ class CardRenderer {
       className: ['card', `card--${this.toCssName(issue.type)}`, settings.compactCards && 'is-compact'].filter(Boolean).join(' '),
       attributes: { draggable: 'true', title: `${issue.key}: ${issue.summary}` },
       dataset: { issueKey: issue.key },
-    }, [this.renderMainLine(issue, settings, conflictingGroupLabels)]);
+    }, [this.renderMainLine(issue, settings, conflictingGroupLabels, isNested)]);
 
     if (!settings.compactCards) {
       card.append(...[
@@ -1510,10 +1541,12 @@ class CardRenderer {
     return card;
   }
 
-  renderMainLine(issue, settings, conflictingGroupLabels) {
+  renderMainLine(issue, settings, conflictingGroupLabels, isNested) {
     const header = createElement('div', { className: 'card__header' }, [
       settings.visibleCardFields.includes('type') && createElement('span', { className: 'card__type', text: issue.type }),
       this.renderIssueKey(issue, settings),
+      !isNested && this.renderEpicBadge(issue),
+      this.renderDescriptionButton(issue),
       conflictingGroupLabels.length > 0 && createElement('span', {
         className: 'card__warning-icon',
         text: '⚠',
@@ -1524,6 +1557,30 @@ class CardRenderer {
       header,
       createElement('div', { className: 'card__summary', text: issue.summary }),
     ]);
+  }
+
+  /** Barn som ikke ligger sammen med epicen sin: merke som utheves epicen og barna ved klikk. */
+  renderEpicBadge(issue) {
+    const epic = issue.epicKey ? this.state.getIssue(issue.epicKey) : undefined;
+    if (!epic || issue.type === EPIC_TYPE) return false;
+    const epicPlacement = this.state.getPlacement(epic.key);
+    if (epicPlacement === this.state.getPlacement(issue.key)) return false;
+    const epicLocation = epicPlacement === UNSORTED ? 'Usortert' : `«${epicPlacement}»`;
+    return createElement('button', {
+      className: 'card__epic-badge',
+      text: `Epic ${epic.key}`,
+      attributes: { type: 'button', draggable: 'false', title: `Epicen ${epic.key} ligger i ${epicLocation}. Klikk for å utheve epicen og alle barna.` },
+      dataset: { selectEpic: epic.key },
+    });
+  }
+
+  renderDescriptionButton(issue) {
+    return createElement('button', {
+      className: 'card__description-button',
+      text: '📓',
+      attributes: { type: 'button', draggable: 'false', title: 'Vis beskrivelse', 'aria-label': `Vis beskrivelse av ${issue.key}` },
+      dataset: { showDescription: issue.key },
+    });
   }
 
   renderIssueKey(issue, settings) {
@@ -2878,6 +2935,12 @@ class App {
     this.workspaceElement.addEventListener('click', event => {
       const toggleButton = event.target.closest('[data-toggle-epic]');
       if (toggleButton) this.state.toggleEpicExpanded(toggleButton.dataset.toggleEpic);
+
+      const descriptionButton = event.target.closest('[data-show-description]');
+      if (descriptionButton) Dialog.showDescription(this.state.getIssue(descriptionButton.dataset.showDescription));
+
+      const epicBadge = event.target.closest('[data-select-epic]');
+      if (epicBadge) this.selectAndReveal(epicBadge.dataset.selectEpic);
 
       const removeButton = event.target.closest('[data-remove-group]');
       if (removeButton) this.confirmAndRemoveGroup(removeButton.dataset.removeGroup);

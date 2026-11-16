@@ -54,6 +54,7 @@ The board reads these columns. `Issue Type`, `Issue key`, `Issue id`, `Summary`,
 | `Parent id` | Optional. Used to find the epic when `Epic Link` is empty. |
 | `Labels` (may repeat) | All labels on the issue. |
 | `Status`, `Created`, `Custom field (Story Points …)` | Optional information on the cards. |
+| `Description` | Optional. Shown in a modal when you click the 📓 icon on a card. `fetch-issues.sh` includes it. |
 
 The file may use semicolon, comma or tab as separator. This is detected automatically.
 
@@ -101,7 +102,7 @@ When a label becomes a group, issues are placed by their labels:
 |---|---|
 | exactly one label that is a group | in that group |
 | several labels that are groups | in **Usortert**, marked with **⚠**. Hover over ⚠ to see which groups. You decide where it goes. |
-| no label that is a group | in the same group as its epic, if it has one; otherwise in Usortert |
+| no label that is a group | in Usortert, even if its epic is in a group (an issue never inherits its epic's group) |
 
 Placements follow the labels until you move an issue yourself. **An issue you have moved is never moved automatically again**, even if you add or remove other groups.
 
@@ -131,6 +132,7 @@ After each move, the moved card flashes and is scrolled into view in its group, 
 
 - Stories, tasks and bugs that belong to an epic are shown **inside the epic card** when they are in the same group as the epic. Click **▸ N barn** to fold them out, **▾** to fold them in.
 - **Moving an epic moves its children** that are in the same group.
+- An issue that is **not** in the same group as its epic (or is in Usortert while the epic is in a group) shows an **Epic E-1** badge. Click it to select the epic and highlight it and all its children, wherever they are.
 - If some of the epic's children are in other groups (or in Usortert), you are asked:
   - **Samle alle i «…»**: move all children with the epic.
   - **La dem ligge**: move only the epic and the children that were with it.

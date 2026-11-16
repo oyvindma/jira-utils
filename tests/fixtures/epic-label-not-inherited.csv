@@ -1,0 +1,6 @@
+Issue Type;Issue key;Issue id;Parent id;Summary;Created;Custom field (Epic Link);Labels;Labels;Status
+Epic;E-1;1;;Epic with group label;2026-11-01 10:00;;Leveranse1;;Ny
+Story;C-1;2;;Child without group label;2026-11-01 10:00;E-1;;;Ny
+Story;C-2;3;;Child with other group label;2026-11-01 10:00;E-1;Leveranse2;;Ny
+Story;C-3;4;;Child with same group label;2026-11-01 10:00;E-1;Leveranse1;;Ny
+Task;C-4;5;;Child with only a non-group label;2026-11-01 10:00;E-1;Old;;Ny
