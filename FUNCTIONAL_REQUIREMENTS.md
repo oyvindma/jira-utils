@@ -23,7 +23,7 @@ Requirements are numbered by area. Each requirement states what the system shall
 | FR-2.1 | The user shall be able to upload one CSV file exported from Jira, containing both epics and stories/tasks/bugs. |
 | FR-2.1a | The user shall also be able to import by dragging a CSV file from the file explorer and dropping it anywhere on the page. While a file is dragged over the page, an overlay shall say where to drop it. A file whose name does not end in `.csv` (and is not `text/csv`) shall be rejected with a message. Dragging cards on the board shall not show the overlay. |
 | FR-2.2 | The separator (semicolon, comma or tab) shall be detected automatically. Quoted fields and a UTF-8 byte order mark shall be handled. |
-| FR-2.3 | Columns shall be found by name. Required: `Issue Type`, `Issue key`, `Summary`. Optional: `Issue id`, `Parent id`, `Created`, `Custom field (Epic Link)`, `Labels`, `Status`, `Custom field (Story Points …)`. |
+| FR-2.3 | Columns shall be found by name. Required: `Issue Type`, `Issue key`, `Issue id`, `Summary`. Optional: `Parent id`, `Created`, `Custom field (Epic Link)`, `Labels`, `Status`, `Custom field (Story Points …)`. |
 | FR-2.4 | Repeated `Labels` columns shall be merged into one list of labels per issue, without duplicates. |
 | FR-2.5 | Only the issue types Epic, Story, Task and Bug shall be imported. All other types (e.g. Sub-task, Xray Test, Test Execution) shall be ignored. |
 | FR-2.6 | An issue's epic shall be taken from `Epic Link`. If empty, it shall be taken from `Parent id` when that id belongs to an epic in the file. |
@@ -120,7 +120,7 @@ Requirements are numbered by area. Each requirement states what the system shall
 |---|---|
 | FR-10.1 | The user shall be able to export the result as a CSV file named `jira-gruppering-YYYY-MM-DD.csv`. |
 | FR-10.2 | Only issues that are placed in a group **and whose labels change** (FR-10.4 gives a different set than the original labels) shall be exported, ordered by group order and then by key. |
-| FR-10.3 | The file shall use semicolon as separator, UTF-8 with byte order mark, and the columns `Issue key`, `Gruppe` and as many `Labels` columns as the issue with most labels needs. |
+| FR-10.3 | The file shall use semicolon as separator, UTF-8 with byte order mark, and the columns `Issue key`, `Issue id`, `Summary`, `Gruppe` and as many `Labels` columns as the issue with most labels needs. |
 | FR-10.4 | *Rule:* exported labels = the issue's original labels, minus every label that is currently a group, plus the label of the group the issue is in. |
 | FR-10.5 | If no issues have changed labels, export shall show a message instead of downloading an empty file. |
 | FR-10.6 | Before downloading, a modal preview shall show every change that will be exported, as a table with the columns Epic (key and summary), Ticket (key and summary) and change in labels (removed and added labels, visually distinct). |
@@ -140,6 +140,19 @@ Requirements are numbered by area. Each requirement states what the system shall
 | FR-11.4 | The user shall be able to sort by key, newest first, type, status or title. |
 | FR-11.5 | An epic shall be shown if it or one of its nested children matches the filter. If only children match, only those children shall be shown inside it. |
 | FR-11.6 | A button shall clear all filters. It shall only be visible when a filter is active. Filter and sort settings shall be saved. |
+
+## 12. Expanded group view
+
+| ID | Requirement |
+|---|---|
+| FR-12.1 | The user shall be able to expand a group so it fills the whole group area on the right side of the board, to get an overview of all its issues. Usortert shall stay visible on the left. The user shall be able to collapse the group again, with a button in its header or with Esc, and the normal layout (FR-5.2) shall return. |
+| FR-12.2 | Only one group shall be expanded at a time. While a group is expanded, the other groups shall be hidden, but the target strip (FR-5.4) shall remain available as drop targets. Expanding another group from the strip shall replace the current one. |
+| FR-12.3 | In the expanded view, an epic and its children that are in the same group shall be shown together, with the children grouped under the epic and all folded out, regardless of the fold state in the normal view (FR-7.1). The fold state saved for the normal view shall not change. |
+| FR-12.4 | If a child is in the group but its epic is in another group or in Usortert, the epic shall be shown above the child as a dimmed placeholder, so the child is still seen under its epic. The placeholder shall be visibly different from an epic that is in the group, for example by a dashed border and a note naming where the epic is. |
+| FR-12.5 | A dimmed placeholder epic shall not count towards the number of issues in the group (FR-3.6), shall not be selectable, draggable or exported, and shall not be moved when its children are moved. It shall exist only in the expanded view. |
+| FR-12.6 | Issues without an epic shall be shown after the epic groups, in the same order as in the normal view. Epic groups shall be ordered by epic key. |
+| FR-12.7 | The expanded view shall allow the same selection, keyboard moves, drag and drop, and undo as the normal view (FR-8, FR-9). Moving an epic shall follow FR-7.3 and FR-7.4. |
+| FR-12.8 | The expanded group shall be saved, so it is restored when the page is opened. If the group is removed, the board shall return to the normal layout. |
 
 ---
 

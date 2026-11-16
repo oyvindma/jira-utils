@@ -574,7 +574,7 @@ const JiraColumn = {
   LABELS: 'Labels',
   STATUS: 'Status',
 };
-const REQUIRED_JIRA_COLUMNS = [JiraColumn.ISSUE_TYPE, JiraColumn.ISSUE_KEY, JiraColumn.SUMMARY];
+const REQUIRED_JIRA_COLUMNS = [JiraColumn.ISSUE_TYPE, JiraColumn.ISSUE_KEY, JiraColumn.ISSUE_ID, JiraColumn.SUMMARY];
 const STORY_POINTS_COLUMN_PREFIX = 'Custom field (Story Points';
 
 const EXPORT_DELIMITER = ';';
@@ -2439,15 +2439,17 @@ const ExportPreview = {
 };
 
 /* ==========================================================================
-   ExportService: CSV med Issue key, gruppe og labels slik de blir i Jira
+   ExportService: CSV med Issue key, Issue id, Summary, gruppe og labels slik de blir i Jira
    ========================================================================== */
 
 const ExportService = {
   buildRows(changes) {
     const labelColumnCount = Math.max(1, ...changes.map(change => change.newLabels.length));
-    const header = ['Issue key', 'Gruppe', ...Array(labelColumnCount).fill('Labels')];
+    const header = ['Issue key', 'Issue id', 'Summary', 'Gruppe', ...Array(labelColumnCount).fill('Labels')];
     const dataRows = changes.map(change => [
       change.issue.key,
+      change.issue.id,
+      change.issue.summary,
       change.group,
       ...change.newLabels,
       ...Array(labelColumnCount - change.newLabels.length).fill(''),

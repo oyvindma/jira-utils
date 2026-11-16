@@ -41,15 +41,16 @@ Your work is saved after every change. You can close the browser and continue la
 
 Export the issues from Jira as CSV (all fields or your current fields). Epics and stories/tasks/bugs must be in **the same file**.
 
-The board reads these columns. Only the first three are required:
+The board reads these columns. Only `Issue Type`, `Issue key`, `Issue id` and `Summary` are required:
 
 | Column | Used for |
 |---|---|
 | `Issue Type` | Type of issue. Only **Epic, Story, Task and Bug** are imported. Other types (Sub-task, Xray Test, Test Execution, …) are ignored. |
 | `Issue key` | The issue's key, for example `PROJ-123`. |
+| `Issue id` | The issue's numeric id. Also used to find the epic (together with `Parent id`) when `Epic Link` is empty. |
 | `Summary` | Title shown on the card. |
 | `Custom field (Epic Link)` | Which epic the issue belongs to. |
-| `Issue id` / `Parent id` | Used to find the epic when `Epic Link` is empty. |
+| `Parent id` | Used to find the epic when `Epic Link` is empty. |
 | `Labels` (may repeat) | All labels on the issue. |
 | `Status`, `Created`, `Custom field (Story Points …)` | Optional information on the cards. |
 
@@ -179,7 +180,7 @@ What is exported:
 - Only issues that are **in a group** and whose **labels change**. An issue that already had exactly the right labels in Jira (for example, it had the label `Milepæl3` and is in the group `Milepæl3`) is left out.
 - If nothing changes, you get a message instead of a file.
 - Separator is semicolon; encoding is UTF-8 (opens correctly in Excel).
-- Columns: `Issue key`, `Gruppe`, and one or more `Labels` columns.
+- Columns: `Issue key`, `Issue id`, `Summary`, `Gruppe`, and one or more `Labels` columns.
 - **Labels** are the labels the issue should have in Jira: its original labels, **minus every label that is a group**, **plus the group it is in now**. An issue moved from `Milepæl3` to `Milepæl4` therefore loses `Milepæl3` and gets `Milepæl4`. Labels that are not groups are kept.
 
 Use the file for a bulk update of labels in Jira (for example with Jira's CSV import, matching on `Issue key`). Check the file and test on a few issues before updating many.
@@ -213,7 +214,7 @@ Shortcuts work when the cursor is not in a text field.
 | Problem | Solution |
 |---|---|
 | "Importen feilet" with a list of epics | The file refers to epics that are not in it. Include the epics in the export, or remove the epic links. |
-| "Filen mangler påkrevde kolonner" | The export must include `Issue Type`, `Issue key` and `Summary`. |
+| "Filen mangler påkrevde kolonner" | The export must include `Issue Type`, `Issue key`, `Issue id` and `Summary`. |
 | Many issues in Usortert with ⚠ | They have labels for more than one group. Choose groups from one label family at a time, or sort them manually. |
 | A number key does nothing | No card is selected, the cursor is in a text field, or there is no group with that number. |
 | My work is gone | Data is stored in this browser on this computer only. A different browser, a private window or clearing browser data gives an empty board. Export regularly if you need a backup. |
